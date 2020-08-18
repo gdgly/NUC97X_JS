@@ -1,0 +1,26 @@
+
+
+
+LOAD_Menu 0x081C0000 0x40000;
+{
+  Menu698.HEX 0x081C0000 0x40000;
+  {
+;//Entry
+		Menu_Entry.o(RESET,+first)
+		
+		
+    *.o(+RO)
+		
+;//End
+		Menu_End.O(Menu_End,+LAST)	
+  }
+}
+
+
+
+
+
+
+
+
+

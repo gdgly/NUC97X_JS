@@ -1,0 +1,302 @@
+/*************************************************
+版  权:正泰仪表智能终端部
+文  件:QCSG_Resolve.c
+作  者:mxn
+版  本:1.00
+日  期:20170601
+描  述:南网协议解析文件
+*************************************************/
+/* Includes ------------------------------------------------------------------*/
+#include <string.h>
+#include <stdio.h>
+#include "../Hcsg/ProjectCSG.h"
+#include "../QCSG_Head/QCSG_UpLinkProtocol.h"
+#include "../QCSG_Head/QCSG_LocalLinkProtocol.h"
+#include "../QCSG_Head/QCSG_DLT645_Protocol.h"
+
+#include "../QCSG_Head/Chint_Type.h"
+#include "../QCSG_Head/QCSG_PublicDefine.h"
+#include "../QCSG_Head/QCSG_PublicFunc.h"
+#include "../QCSG_Head/QCSG_Table.h"
+#include "../STM32F4xx/STM32F4xx_IO.h"
+#include "../STM32F4xx/STM32F4xx_UART.h"
+#include "../STM32F4xx/STM32F4xx_DMA.h"
+#include "../Device/MEMRW.h"
+#include "../Calculate/Calculate.h"
+#include "../Display/Warning.h"
+#include "../LIB/Ethernet.h"
+#include "../QCSG_Head/QCSG_Hal.h"
+#include "../QCSG_Head/QCSG_Resolve.h"
+#include "../QCSG_Head/QCSG_AFN04.h"
+#include "../QCSG_Head/QCSG_AFN0A.h"
+#include "../QCSG_Head/QCSG_AFN0C.h"
+#include "../QCSG_Head/QCSG_AFN0D.h"
+#include "../QCSG_Head/QCSG_AFN0E.h"
+#include "../QCSG_Head/QCSG_AFN0F.h"
+#include "../QCSG_Head/QCSG_AFN10.h"
+#include "../QCSG_Head/QCSG_AFN12.h"
+#include "../QCSG_Head/QCSG_AFN13.h"
+#include "Terminal_Task.h"
+
+/* Private typedef -----------------------------------------------------------*/
+/* Private define ------------------------------------------------------------*/
+/* Private constants ---------------------------------------------------------*/
+/* Private macro -------------------------------------------------------------*/
+/* Private variables ---------------------------------------------------------*/
+/* Public variables ----------------------------------------------------------*/
+/* Private function prototypes -----------------------------------------------*/
+/* Private functions ---------------------------------------------------------*/
+/* Public functions ----------------------------------------------------------*/
+/**--------------------------------------------------------------------
+*功    能:南网数据解析函数
+*输入参数:u8ChNo：数据通道，pstRevFrame:接收的数据缓冲，pstQCSG_Info：南网协议解析缓冲
+*输出参数:无
+*返    回:解析结果
+--------------------------------------------------------------------**/
+
+ResultEnum QCSG_Up_Protocol_Req_Process(u32 PORTn, UartTaskCtrlStruct* UartTask)
+{
+	ResultEnum Result = NO_ERROR;
+	u32 FrameLen = 0, FrameAddr = 0;
+  	UARTCtrl_TypeDef* UARTCtrl;
+	QCSGFrameStruct SrcFrame;
+	QCSGFrameStruct DstFrame;
+	
+	UARTCtrl = (UARTCtrl_TypeDef *)Get_ADDR_UARTnCtrl(PORTn);
+	MC(0, (u32)&SrcFrame, sizeof(QCSGFrameStruct));
+	MC(0, (u32)&DstFrame, sizeof(QCSGFrameStruct));
+
+	FrameLen = UARTCtrl->RxByte;
+	if((u16)FrameLen != UARTCtrl->RxByte)
+	{
+		FrameLen = UARTCtrl->RxByte;
+	}
+	if((u16)FrameLen > LEN_DATABUFF) return ERROR_WRONG_LENGTH;
+	
+	//MR(ADDR_DATABUFF, Get_ADDR_UARTnRx(PORTn), FrameLen);  	
+	FrameAddr = Get_ADDR_UARTnRx(PORTn);
+
+	Result = QCSG_FrameDecompress((u8*)FrameAddr, FrameLen, &SrcFrame);
+    if(Result != NO_ERROR) 
+	{
+		UartTask->Flag |= UART_FLAG_RX_BUF_READ_DONE;
+		return Result;
+	}
+
+	Result = QCSG_AddrCheck(&SrcFrame);
+   	if(Result != NO_ERROR) 
+	{
+		UartTask->Flag |= UART_FLAG_RX_BUF_READ_DONE;
+		return Result;
+	}
+
+	if((SrcFrame.SEQ & QCSG_SEQ_TPV_BIT) != 0)
+	{
+		SrcFrame.DataLen -= QCSG_TPV_LEN;
+		Result = QCSG_TpvCheck(&SrcFrame);
+		if(Result != NO_ERROR) 
+		{
+			UartTask->Flag |= UART_FLAG_RX_BUF_READ_DONE;
+			return Result;
+		}
+	}
+
+	if((SrcFrame.AFN == 0x04) || (SrcFrame.AFN == 0x06))
+    {
+    	SrcFrame.DataLen -= QCSG_PW_LEN;
+        Result = QCSG_PwCheck(&SrcFrame);
+		if(Result != NO_ERROR) 
+		{
+			UartTask->Flag |= UART_FLAG_RX_BUF_READ_DONE;
+			return Result;
+		}
+    }
+
+	SrcFrame.FC = (SrcFrame.FC & 0xFFF0) | QCSG_FC_PRM0_F8;
+
+	switch(SrcFrame.AFN)		
+    {
+    	case 0x00:
+			Result = QCSG_AFN00_Resolve_ZY(PORTn, &SrcFrame, &DstFrame);
+			break;
+	    case 0x04:
+	        Result = QCSG_AFN04_Resolve_ZY(PORTn, &SrcFrame, &DstFrame);
+			HAL_BuzzerON(BUZZ_MODE_RW_PARA, 20);
+	        break;
+	    case 0x0A:
+	        Result = QCSG_AFN0A_Resolve_ZY(PORTn, &SrcFrame, &DstFrame);
+	        break;
+	    case 0x0C:
+	        Result = QCSG_AFN0C_Resolve_ZY(PORTn, &SrcFrame, &DstFrame);
+	        break;
+	    case 0x0D:
+	        Result = QCSG_AFN0D_Resolve_ZY(PORTn, &SrcFrame, &DstFrame);
+	        break;
+	    case 0x0E:
+	        Result = QCSG_AFN0E_Resolve_ZY(PORTn, &SrcFrame, &DstFrame);
+	        break;
+	    case 0x0F:
+	        Result = QCSG_AFN0F_Resolve_ZY(PORTn, &SrcFrame, &DstFrame);
+	        break;
+	    case 0x10:
+	        Result = QCSG_AFN10_Resolve_ZY(PORTn, &SrcFrame, &DstFrame);
+	        break;
+	    case 0x12:
+	        Result = QCSG_AFN12_Resolve_ZY(PORTn, &SrcFrame, &DstFrame);
+	        break;
+	    case 0x13:
+	        Result = QCSG_AFN13_Resolve_ZY(PORTn, &SrcFrame, &DstFrame);
+	        break;
+	    default:
+        	break;
+    }
+	#if (TEST_ON == 1)
+		QCSG_LogToRS232Port(PORTn, FrameAddr, UARTCtrl->RxByte);
+	#endif
+	if(Result != ERROR_DO_NOT_ANSWER)
+	{
+		FrameLen = QCSG_BuildFrameByStruct(&DstFrame, (u8*)Get_ADDR_UARTnTx(PORTn));
+		UartTask->AckLen = FrameLen;
+		UartTask->Flag |= UART_FLAG_TX_ACK;	
+		#if (TEST_ON == 1)
+			QCSG_LogToRS232Port(PORTn, Get_ADDR_UARTnTx(PORTn), FrameLen);
+		#endif
+	}
+	
+   	UartTask->Flag |= UART_FLAG_RX_BUF_READ_DONE;
+    return Result;
+}
+
+
+
+ResultEnum QCSG_AFN00_Resolve_ZY(u32 PORTn, QCSGFrameStruct* SrcFrame, QCSGFrameStruct* DstFrame)
+{
+	//ResultEnum Result = NO_ERROR;
+	UARTCtrl_TypeDef* UARTCtrl;
+	if((u8)PORTn == ENETPORT)
+	{
+		UARTCtrl = (UARTCtrl_TypeDef *)Get_ADDR_UARTnCtrl(PORTn);
+		if(UARTCtrl->LinkTask == 100)
+		{
+			UARTCtrl->LinkTask = 101;
+		}
+		if(UARTCtrl->LinkTask == 101)
+		{
+			UARTCtrl->HeartberatCount = 0;
+		}
+		if(UARTCtrl->LinkTask == 102)
+		{
+			UARTCtrl->LinkTask = 103;
+		}
+	}
+
+	if((u8)PORTn == GPRSPORT)
+	{
+		UARTCtrl = (UARTCtrl_TypeDef *)Get_ADDR_UARTnCtrl(PORTn);
+		if(UARTCtrl->LinkTask == 100)
+		{
+			UARTCtrl->LinkTask = 101;
+		}
+		if(UARTCtrl->LinkTask == 101)
+		{
+			UARTCtrl->HeartberatCount = 0;
+		}
+		if(UARTCtrl->LinkTask == 102)
+		{
+			UARTCtrl->LinkTask = 103;
+		}
+	}
+
+	UARTCtrl->ReceivedHostAck = 0x01;
+	return ERROR_DO_NOT_ANSWER;
+}
+
+
+ResultEnum QCSG_FrameDecompress(u8* FrameBuf, u16 FrameLen, QCSGFrameStruct* Frame)
+{
+	u16 Len = 0, Len2 = 0;
+	Len = FrameBuf[2];
+	Len <<= 8;
+	Len += FrameBuf[1];
+
+	Len2 = FrameBuf[4];
+	Len2 <<= 8;
+	Len2 += FrameBuf[3];
+
+	if(Len != Len2) return ERROR_WRONG_LENGTH;
+	if(FrameLen != (Len + 8)) return ERROR_WRONG_LENGTH;
+	if(Len > QCSG_MAX_FRAME_LEN) return ERROR_WRONG_LENGTH;
+
+	Frame->DataLen = Len - 10;
+	Frame->FC = FrameBuf[6];
+	
+	Frame->A1 = FrameBuf[9];
+	Frame->A1 <<= 8;
+	Frame->A1 += FrameBuf[8];
+	Frame->A1 <<= 8;
+	Frame->A1 += FrameBuf[7];
+
+	Frame->A2 = FrameBuf[12];
+	Frame->A2 <<= 8;
+	Frame->A2 += FrameBuf[11];
+	Frame->A2 <<= 8;
+	Frame->A2 += FrameBuf[10];
+	
+	Frame->A3 = FrameBuf[13];
+
+	Frame->AFN = FrameBuf[14];
+	Frame->SEQ = FrameBuf[15];
+	
+	MemCopy(Frame->Data, &FrameBuf[16], FrameLen - QCSG_FIXED_LEN);
+	return NO_ERROR;
+}
+
+ResultEnum QCSG_AddrCheck(QCSGFrameStruct* Frame)
+{
+	#if (TEST_ON == 1)
+		return NO_ERROR;
+	#else
+		TerminalRunTimeCtrlStruct* pTSysCtrl = (TerminalRunTimeCtrlStruct*)ADDR_Terminal_RunTime;
+	
+		if((Frame->A1 == 0x00FFFFFF) && (Frame->A2 == 0x00FFFFFF))
+		{
+			Frame->A1 = pTSysCtrl->TerminalLocation & 0x00FFFFFF;
+			Frame->A2 = pTSysCtrl->TerminalAddr & 0x00FFFFFF;
+			return NO_ERROR;
+		}
+
+		if(((Frame->A1 & 0x00FFFFFF) == (pTSysCtrl->TerminalLocation & 0x00FFFFFF)) &&
+		   ((Frame->A2 & 0x00FFFFFF) == (pTSysCtrl->TerminalAddr & 0x00FFFFFF))) 
+		{
+			return NO_ERROR;		
+		}
+
+		return ERROR_WRONG_ACCESS;
+	#endif
+}
+
+ResultEnum QCSG_TpvCheck(QCSGFrameStruct* Frame)
+{
+	return NO_ERROR;
+}
+
+ResultEnum QCSG_PwCheck(QCSGFrameStruct* Frame)
+{
+	return NO_ERROR;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/************************ (C) COPYRIGHT M***********************END OF FILE****/

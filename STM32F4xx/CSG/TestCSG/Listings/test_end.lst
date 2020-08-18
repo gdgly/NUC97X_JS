@@ -1,0 +1,55 @@
+
+
+
+ARM Macro Assembler    Page 1 
+
+
+    1 00000000         
+    2 00000000         ;//软件模块结束
+    3 00000000         
+    4 00000000         
+    5 00000000                 export           ADDR_Test_END
+    6 00000000         
+    7 00000000         
+    8 00000000         
+    9 00000000                 AREA             Test_END,DATA,READONLY
+   10 00000000                 ALIGN            4
+   11 00000000         
+   12 00000000 00000000        DCD              0           ;//CRC32
+   13 00000004 5A5A5A5A        DCD              0x5A5A5A5A  ;//固定标识(最后)
+   14 00000008         ADDR_Test_END
+   15 00000008         
+   16 00000008         
+   17 00000008                 END
+Command Line: --debug --xref --diag_suppress=9931 --cpu=Cortex-M4.fp --apcs=int
+erwork --depend=d:\obj\test_end.d -od:\obj\test_end.o -IF:\SouthElectricNetWork
+\TerminalQCSG\TestCSG\RTE -IF:\SouthElectricNetWork\TerminalQCSG\TestCSG\RTE\De
+vice\STM32F469BITx -ID:\Keil_v5\ARM\PACK\ARM\CMSIS\5.0.1\CMSIS\Include -ID:\Kei
+l_v5\ARM\PACK\Keil\STM32F4xx_DFP\2.11.0\Drivers\CMSIS\Device\ST\STM32F4xx\Inclu
+de -ID:\Keil_v5\ARM\PACK\Keil\STM32F4xx_DFP\2.11.0\Drivers\STM32F4xx_HAL_Driver
+\Inc --predefine="__UVISION_VERSION SETA 517" --predefine="_RTE_ SETA 1" --pred
+efine="STM32F469xx SETA 1" --list=.\listings\test_end.lst Test_End.s
+
+
+
+ARM Macro Assembler    Page 1 Alphabetic symbol ordering
+Relocatable symbols
+
+ADDR_Test_END 00000008
+
+Symbol: ADDR_Test_END
+   Definitions
+      At line 14 in file Test_End.s
+   Uses
+      At line 5 in file Test_End.s
+Comment: ADDR_Test_END used once
+Test_END 00000000
+
+Symbol: Test_END
+   Definitions
+      At line 9 in file Test_End.s
+   Uses
+      None
+Comment: Test_END unused
+2 symbols
+335 symbols in table

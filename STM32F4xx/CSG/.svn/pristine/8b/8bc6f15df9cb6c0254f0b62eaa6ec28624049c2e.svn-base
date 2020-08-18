@@ -1,0 +1,244 @@
+
+
+//内部交流采样
+#include "../Hcsg/ProjectCSG.h"
+
+#include "../QCSG_Uart/Terminal_ReadMeter_ACSample.h"
+#include "../STM32F4xx/STM32F4xx_UART.h"
+#include "../Device/MEMRW.h"
+//#include "Terminal_ReadMeter_DL645_2007_FnData.h"
+//#include "Terminal_ReadMeter_SaveFnData.h"
+
+
+
+
+void GetACSample(u32 DI)//得到内部交采数据,入口通信数据标识,返回645帧格式在通信口缓冲的发送区
+{
+	u32 i;
+	u32 Task;
+	u32 *p32;
+	UARTCtrl_TypeDef * UARTCtrl;
+	u8 * p8rxbuff;
+	u8 * p8txbuff;
+	
+  	UARTCtrl=(UARTCtrl_TypeDef *)Get_ADDR_UARTnCtrl(ACSAMPLEPORT);
+	p8rxbuff=(u8 *)Get_ADDR_UARTnRx(ACSAMPLEPORT);
+	p8txbuff=(u8 *)Get_ADDR_UARTnTx(ACSAMPLEPORT);
+	Task=UARTCtrl->Task;			// 原任务寄存
+	UARTCtrl->Task=1;				// 1=接收完成
+	UARTCtrl->Lock=0;				// 0x55=通信功能正在被调用禁止其他程序再次调用
+	MWR(DI,((u32)p8rxbuff)+10,4);
+	//加0x33
+	for(i=0;i<4;i++)
+	{
+		p8rxbuff[10+i]+=0x33;
+	}
+	//通信地址
+	MC(0xaa,((u32)p8rxbuff)+1,6);
+	p8rxbuff[8]=0x11;//读命令
+	p8rxbuff[9]=0x4;
+	#if ((Project/100)<5)		//方案0=智能表,100=网络表,200=集中器,300=专变终端,400=公变终端,500=采集器,600=通信模块
+		if(FileDownload->File & 0x4)	//文件标志(置位表示OK)::B0=MS,B1=OS,B2=Meter,B3=Terminal,B4=Menu,B5=Font,B6=,B7=Router,...B31=
+		{
+			p32=(u32 *)(ADDR_Meter_ENTRY);
+			(*(void(*)())p32[130])((u32)ACSAMPLEPORT);		//调用void Meter07_DL645_RxTx(u32 PORTn)//Meter07_DL645接收发送
+			//减33H
+			for(i=0;i<p8txbuff[9];i++)
+			{
+				p8txbuff[10+i]-=0x33;
+			}
+		}
+		else
+		{
+			MC(0,Get_ADDR_UARTnTx(ACSAMPLEPORT),Get_LEN_UARTnTx(ACSAMPLEPORT));
+		}
+	#else	//#if ((Project/100)<5)
+		MC(0,Get_ADDR_UARTnTx(ACSAMPLEPORT),Get_LEN_UARTnTx(ACSAMPLEPORT));
+	#endif//#if ((Project/100)<5)
+		UARTCtrl->Task = Task;//原任务恢复
+}
+
+
+
+
+/*
+extern const u32 DL645_2007_RMLib[];
+u32 Get_RM_DL645_2007_MaxFn(void);
+void Terminal_ReadMeter_ACSample(u32 PORTn)//终端抄表,交流采样
+{
+	u32 i;
+	u32 Fn;
+	u32 Pn;
+	u8 *p8RMLib;
+  UARTCtrl_TypeDef * UARTCtrl;
+	u8 * p8rxbuff;
+	u8 * p8txbuff;
+	u8 * p8FnData;
+	u32 *p32;
+
+	u32 LEN_UARTnRx=Get_LEN_UARTnRx(PORTn);
+	u32 LEN_UARTnTx=Get_LEN_UARTnTx(PORTn);
+
+  UARTCtrl=(UARTCtrl_TypeDef *)Get_ADDR_UARTnCtrl(PORTn);
+	p8rxbuff=(u8 *)Get_ADDR_UARTnRx(PORTn);
+	p8txbuff=(u8 *)Get_ADDR_UARTnTx(PORTn);
+	p8FnData=(u8 *)Get_ADDR_UARTnFnDataBuff(PORTn);
+	
+
+	if(UARTCtrl->Lock==0x55)
+	{
+		return;//0x55=通信功能正在被调用禁止其他程序再次调用
+	}
+	switch(UARTCtrl->Task)//0=空闲,1=完成1帧发收,2=接收超时(或错误),3=启动发送,4=正在发送,5=正在接收
+	{
+		default:
+			UARTCtrl->Task=0;
+			break;
+		case 0://0=空闲
+#if RMM_RS485_PassageZero==1//RS485通道抄表过0点;0=不暂停,1=暂停
+			i=MRR(ADDR_TYMDHMS,3);
+			if((i>0x235955)||(i<0x000005))
+			{//内部交采在每日0点附近暂停抄表
+				return;
+			}
+#endif
+			UARTCtrl->Task=3;//启动发送
+			break;
+		case 1://1=完成1帧发收
+			UARTCtrl->Task=0;//空闲1次
+			break;
+		case 2://2=接收超时(或错误)
+			UARTCtrl->Task=0;//空闲1次
+			UARTCtrl->RMCount+=1;//抄表命令计数+1
+			Fn=MRR(DL645_2007_RMLib[UARTCtrl->FnCount],1);
+			switch(Fn)
+			{
+				case 0xE1://扩展1 ERC8电能表参数变更事件用数据
+					i=UARTCtrl->RMCount;
+					if(i<2)//抄表命令计数
+					{//第1套第1-2日时段表
+						UARTCtrl->RMCount=2;
+						break;
+					}
+					if(i<4)//抄表命令计数
+					{//第2套第1-2日时段表
+						UARTCtrl->RMCount=4;
+					}
+					break;
+			}
+			break;
+		case 3://3=启动发送
+			Pn=MRR(ADDR_AFN04F10+((UARTCtrl->MeterNo-1)*27)+2,2);
+			if(Pn==0x0)
+			{//本序号的电能表/交流采样装置删除
+				UARTCtrl->Task=0;//0=空闲
+				UARTCtrl->FnEnd=0;//485抄表Fn计数结束标志,0=结束,1=没结束
+				break;
+			}
+			if(UARTCtrl->FnCount>=Get_RM_DL645_2007_MaxFn())
+			{//Fn计数>=最大Fn个数,本表抄表完成
+				UARTCtrl->Task=0;//0=空闲
+				UARTCtrl->FnCount=0;//Fn计数=0
+				UARTCtrl->FnEnd=0;//485抄表Fn计数结束标志,0=结束,1=没结束
+				UARTCtrl->RMCount=0;//抄表命令计数=0
+				UARTCtrl->RMError=0;//本电能表/交流采样装置序号通信失败标志
+				break;
+			}
+			if(DL645_2007_RMLib[UARTCtrl->FnCount]==0x0)
+			{//本Fn无抄表
+NEXT_Fn:
+				UARTCtrl->Task=1;//完成1帧发收
+				UARTCtrl->FnCount+=1;//Fn计数+1
+				UARTCtrl->RMCount=0;//抄表命令计数=0
+				break;	
+			}
+			p8RMLib=(u8 *)DL645_2007_RMLib[UARTCtrl->FnCount];
+			if((p8RMLib[3]&0x1)==0x0)
+			{//本Fn不用于交流采样抄表
+				goto NEXT_Fn;
+			}
+			Fn=p8RMLib[0];
+			if(p8RMLib[1]==0x0)
+			{//本Fn抄表命令数=0
+			#if AFN0CF33MaxPn==0
+				goto NEXT_Fn;
+			#else
+				switch(Fn)
+				{
+//F33 当前正向有/无功（组合无功1）电能示值、一/四象限无功电能示值（总、费率1～M，1≤M≤12）
+//F34 当前反向有/无功（组合无功2）电能示值、二/三象限无功电能示值（总、费率1～M，1≤M≤12）
+//F35 当月正向有/无功最大需量及发生时间（总、费率1～M，1≤M≤12）
+//F36 当月反向有/无功最大需量及发生时间（总、费率1～M，1≤M≤12）
+//F37 上月（上一结算日）正向有/无功（组合无功1）电能示值、一/四象限无功电能示值（总、费率1～M，1≤M≤12）
+//F38 上月（上一结算日）反向有/无功（组合无功2）电能示值、二/三象限无功电能示值（总、费率1～M，1≤M≤12）
+//F39 上月（上一结算日）正向有/无功最大需量及发生时间（总、费率1～M，1≤M≤12）
+//F40 上月（上一结算日）反向有/无功最大需量及发生时间（总、费率1～M，1≤M≤12）
+					case 33:
+					case 34:
+					case 35:
+					case 36:
+					case 37:
+					case 38:
+					case 39:
+					case 40:
+						break;
+					default:
+						goto NEXT_Fn;
+				}
+				ReadMeter_SaveFnData(PORTn,Fn,Pn,(u32)p8FnData,p8RMLib);//存贮抄表Fn数据
+				goto NEXT_Fn;
+			#endif
+			}
+			
+			if(UARTCtrl->RMCount>=p8RMLib[1])
+			{//抄表命令计数>=Fn需发命令数;本Fn抄表完成
+				ReadMeter_SaveFnData(PORTn,Fn,Pn,(u32)p8FnData,p8RMLib);//存贮抄表Fn数据
+				goto NEXT_Fn;
+			}
+			
+			if(UARTCtrl->RMCount==0x0)
+			{//抄表命令计数=0,清Fn数据缓冲
+				MC(0xee,Get_ADDR_UARTnFnDataBuff(PORTn),Get_LEN_UARTnFnDataBuff(PORTn));
+			}
+			Terminal_ReadMeter_DL645_2007_TxData(PORTn,p8RMLib);//终端DL645-2007抄表发送数据
+			MR((u32)p8rxbuff,((u32)p8txbuff)+4,16);
+			UARTCtrl->Task=1;//1=接收完成
+			UARTCtrl->Lock=0;//0x55=通信功能正在被调用禁止其他程序再次调用
+		  if(FileDownload->File&0x04)//文件标志(置位表示OK)::B0=MS,B1=OS,B2=Meter,B3=Terminal,B4=Menu,B5=Font,B6=,B7=Router,...B31=
+		  {
+				p32=(u32 *)(ADDR_Meter_ENTRY);
+	      (*(void(*)())p32[130])((u32)PORTn);//调用void Meter07_DL645_RxTx(u32 PORTn)//Meter07_DL645接收发送
+			}
+			else
+			{
+				UARTCtrl->Task=1;//完成1帧发收
+				UARTCtrl->RMCount+=1;//抄表命令计数+1
+				break;
+			}
+			MR((u32)p8rxbuff,((u32)p8txbuff),p8txbuff[9]+12);
+			//控制码
+			if((p8rxbuff[8]&0x40)!=0x0)
+			{//从站异常回答
+				UARTCtrl->Task=1;//完成1帧发收
+				UARTCtrl->RMCount+=1;//抄表命令计数+1
+				break;
+			}
+			//减0x33
+			for(i=0;i<p8rxbuff[9];i++)
+			{
+				p8rxbuff[10+i]-=0x33;
+			}
+			ReadMeter_DL645_2007_FnData(PORTn,p8RMLib);//DL645_2007抄表接收数据填入Fn数据缓冲
+			UARTCtrl->Task=1;//完成1帧发收
+			UARTCtrl->RMCount+=1;//抄表命令计数+1
+			break;
+	}
+
+}
+*/
+
+
+
+
+
+

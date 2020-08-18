@@ -1,0 +1,26 @@
+
+
+
+LOAD_Meter 0x00124000 0x00040000;//256k
+{
+  Meter376N.bin 0x00124000 0x00040000
+  {
+;//Entry
+		Meter_Entry.o(RESET,+first)
+		;//*(InRoot$$Sections);//__main()的一部分
+    .ANY (+RO)
+		
+;//End
+		Meter_End.o(Meter_END,+LAST)
+  }
+	
+	RW_RAM1 0x00400000 0x00040000;//+0;RW_RAM1 start address is after ER_ROM1
+	{
+		.ANY (+RW +ZI)
+	}
+	;//ARM_LIB_HEAP  0x00100000 EMPTY  0x00080000   {}
+	;//ARM_LIB_STACK 0x00180000 EMPTY -0x00080000   {}
+}
+
+
+

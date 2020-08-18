@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<ProjectWorkspace xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="project_mpw.xsd">
+
+  <SchemaVersion>1.0</SchemaVersion>
+
+  <Header>### uVision Project, (C) Keil Software</Header>
+
+  <WorkspaceName>WorkSpace</WorkspaceName>
+
+  <project>
+    <PathAndName>.\Head\Head.uvprojx</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\H698\H698.uvprojx</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\Hcsg\Hcsg.uvprojx</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\BOOT\BOOT.uvprojx</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\MS\MS.uvprojx</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\OS\OS.uvprojx</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\LIB\STM32F4xxLIB.uvprojx</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\Meter\Meter.uvprojx</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\Meter698\Meter698.uvprojx</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\MeterCSG\MeterCSG.uvprojx</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\Terminal\Terminal.uvprojx</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\Terminal698\Terminal698.uvprojx</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\CSG\TerminalCSG\TerminalQCSG.uvprojx</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\Menu\Menu.uvprojx</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\Menu698\Menu698.uvprojx</PathAndName>
+    <NodeIsActive>1</NodeIsActive>
+  </project>
+
+  <project>
+    <PathAndName>.\CSG\MenuCSG\MenuQCSG.uvprojx</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\TEST\TEST.uvprojx</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\Font\Font.uvprojx</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\PACK\PACK.uvprojx</PathAndName>
+  </project>
+
+</ProjectWorkspace>

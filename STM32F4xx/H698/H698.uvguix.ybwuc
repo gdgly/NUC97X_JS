@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<ProjectGui xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="project_guix.xsd">
+
+  <SchemaVersion>-6.1</SchemaVersion>
+
+  <Header>### uVision Project, (C) Keil Software</Header>
+
+  <ViewPool/>
+
+  <SECTreeCtrl>
+    <View>
+      <WinId>38003</WinId>
+      <ViewName>Registers</ViewName>
+      <TableColWidths>115 275</TableColWidths>
+    </View>
+    <View>
+      <WinId>346</WinId>
+      <ViewName>Code Coverage</ViewName>
+      <TableColWidths>810 160</TableColWidths>
+    </View>
+    <View>
+      <WinId>204</WinId>
+      <ViewName>Performance Analyzer</ViewName>
+      <TableColWidths>970</TableColWidths>
+    </View>
+  </SECTreeCtrl>
+
+  <TreeListPane>
+    <View>
+      <WinId>1506</WinId>
+      <ViewName>Symbols</ViewName>
+      <UserString></UserString>
+      <TableColWidths>66 66 66</TableColWidths>
+    </View>
+    <View>
+      <WinId>1936</WinId>
+      <ViewName>Watch 1</ViewName>
+      <UserString></UserString>
+      <TableColWidths>66 66 66</TableColWidths>
+    </View>
+    <View>
+      <WinId>1937</WinId>
+      <ViewName>Watch 2</ViewName>
+      <UserString></UserString>
+      <TableColWidths>66 66 66</TableColWidths>
+    </View>
+    <View>
+      <WinId>1935</WinId>
+      <ViewName>Call Stack + Locals</ViewName>
+      <UserString></UserString>
+      <TableColWidths>66 66 66</TableColWidths>
+    </View>
+    <View>
+      <WinId>2506</WinId>
+      <ViewName>Trace Data</ViewName>
+      <UserString></UserString>
+      <TableColWidths>75 135 130 95 70 230 200 150</TableColWidths>
+    </View>
+  </TreeListPane>
+
+  <CompViewPool/>
+
+  <WindowSettings>
+    <LogicAnalizer>
+      <ShowLACursor>1</ShowLACursor>
+      <ShowSignalInfo>1</ShowSignalInfo>
+      <ShowCycles>0</ShowCycles>
+      <LeftSideBarSize>0</LeftSideBarSize>
+      <TimeBaseIndex>-1</TimeBaseIndex>
+    </LogicAnalizer>
+  </WindowSettings>
+
+  <WinLayoutEx>
+    <sActiveDebugView></sActiveDebugView>
+    <WindowPosition>
+      <length>44</length>
+      <flags>2</flags>
+      <showCmd>3</showCmd>
+      <MinPosition>
+        <xPos>-1</xPos>
+        <yPos>-1</yPos>
+      </MinPosition>
+      <MaxPosition>
+        <xPos>-1</xPos>
+        <yPos>-1</yPos>
+      </MaxPosition>
+      <NormalPosition>
+        <Top>36</Top>
+        <Left>154</Left>
+        <Right>1481</Right>
+        <Bottom>880</Bottom>
+      </NormalPosition>
+    </WindowPosition>
+    <MDIClientArea>
+      <RegID>0</RegID>
+      <MDITabState>
+        <Len>900</Len>
+        <Data>01000000040000000100000001000000010000000100000000000000020000000000000001000000010000000000000028000000280000000100000007000000060000000100000042453A5C363938574F52445C4A535C53544D3332463478782D4E55433937782D6C696E75782D636F70795C53544D3332463478785C483639385C4552414D3639382E6800000000094552414D3639382E6800000000FFDC7800FFFFFFFF45453A5C363938574F52445C4A535C53544D3332463478782D4E55433937782D6C696E75782D636F70795C53544D3332463478785C483639385C50726F6A6563743639382E68000000000C50726F6A6563743639382E6800000000BECEA100FFFFFFFF4F453A5C363938574F52445C4A535C53544D3332463478782D4E55433937782D6C696E75782D636F70795C53544D3332463478785C5465726D696E616C3639385C5465726D696E616C5F4D61696E2E63000000000F5465726D696E616C5F4D61696E2E6300000000F0A0A100FFFFFFFF46453A5C363938574F52445C4A535C53544D3332463478782D4E55433937782D6C696E75782D636F70795C53544D3332463478785C4465766963655C475052535F333736332E63000000000B475052535F333736332E6300000000BCA8E100FFFFFFFF3B453A5C363938574F52445C4A535C53544D3332463478782D4E55433937782D6C696E75782D636F70795C53544D3332463478785C4D535C4D532E6800000000044D532E68000000009CC1B600FFFFFFFF4E453A5C363938574F52445C4A535C53544D3332463478782D4E55433937782D6C696E75782D636F70795C53544D3332463478785C4D535C45746865726E65742D4E55433937782D6C696E75782E63000000001745746865726E65742D4E55433937782D6C696E75782E6300000000F7B88600FFFFFFFF52453A5C363938574F52445C4A535C53544D3332463478782D4E55433937782D6C696E75782D636F70795C53544D3332463478785C483639385C50726F6A6563743639385F3278785F55534552313778782E68000000001950726F6A6563743639385F3278785F55534552313778782E6800000000D9ADC200FFFFFFFF0100000010000000C5D4F200FFDC7800BECEA100F0A0A100BCA8E1009CC1B600F7B88600D9ADC200A5C2D700B3A6BE00EAD6A300F6FA7D00B5E99D005FC3CF00C1838300CACAD500010000000000000002000000940100004A00000040060000D0020000</Data>
+      </MDITabState>
+    </MDIClientArea>
+  </WinLayoutEx>
+
+  <Bookmarks>
+    <ListItem>E:\698WORD\JS\STM32F4xx-NUC97x-linux-copy\STM32F4xx\Device\GPRS_3763.c 6367</ListItem>
+    <ListItem>E:\698WORD\JS\STM32F4xx-NUC97x-linux-copy\STM32F4xx\Device\GPRS_3763.c 4402</ListItem>
+  </Bookmarks>
+
+</ProjectGui>

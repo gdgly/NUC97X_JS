@@ -1,0 +1,226 @@
+/*************************************************
+版  权:正泰仪表智能终端部
+文  件:QCSG_PublicFunc.h
+作  者:mxn
+版  本:1.00
+日  期:20170601
+描  述:南网协议公用函数文件
+*************************************************/
+
+/* Define to prevent recursive inclusion -------------------------------------*/
+#ifndef __QCSG_PUBLICFUNC_H
+#define __QCSG_PUBLICFUNC_H
+/* Includes ------------------------------------------------------------------*/
+//#include "Chint_Type.h"
+//#include "QCSG_PublicDefine.h"
+/* Exported define -----------------------------------------------------------*/
+/* Exported types ------------------------------------------------------------*/
+/* Exported constants --------------------------------------------------------*/
+/* Exported macro ------------------------------------------------------------*/
+/* Exported variables --------------------------------------------------------*/
+/* Exported functions ------------------------------------------------------- */
+extern float QCSG_ABS(float fx); 
+extern float QCSG_SIN(float fx);
+extern float QCSG_COS(float fx);
+extern float QCSG_SQRT(float fa);
+extern u8 QCSG_GetCHConnectState(u8 u8ChNo);
+extern s8 QCSG_TimerSub(TIME_PARAM_S* pstTimerMinuend,TIME_PARAM_S* pstTimerSubtrahend,u32* pu32Result);
+extern u8 QCSG_TimerAdd(TIME_PARAM_S *TimerAddend,u32 Sec,TIME_PARAM_S *TimerTotal);
+extern u8 QCSG_BCDCheck(u8* pu8Data,u32 u16DataLen);
+extern u8 QCSG_IncBCD(u8 u8Bcd);
+extern u8 QCSG_DecBCD(u8 u8Bcd);
+extern u8 QCSG_CalMaxDateInMonth(TIME_PARAM_S* pstTime);
+extern u8 QCSG_BCD2HEX(u8 u8BCD);
+extern u8 QCSG_HEX2BCD(u8 u8HEX);
+extern u8 QCSG_IncOneSecond(TIME_PARAM_S* pstTime);
+extern u8 QCSG_DecOneSecond(TIME_PARAM_S* pstTime);
+extern u8 QCSG_IncOneMinute(TIME_PARAM_S* pstTime);
+extern u8 QCSG_DecOneMinute(TIME_PARAM_S* pstTime);
+extern u8 QCSG_IncOneHour(TIME_PARAM_S* pstTime);
+extern u8 QCSG_DecOneHour(TIME_PARAM_S* pstTime);
+extern u8 QCSG_IncOneDay(TIME_PARAM_S* pstTime);
+extern u8 QCSG_DecOneDay(TIME_PARAM_S* pstTime);
+extern u8 QCSG_IncOneMonth(TIME_PARAM_S* pstTime);
+extern u8 QCSG_DecOneMonth(TIME_PARAM_S* pstTime);
+extern u8 QCSG_CalCs(u8* pu8Buf,u16 u16Len);
+extern u8 QCSG_MakeDLT645Frame(u8 u8FEFlag,u8* pu8MeterID,u8 u8CtrlCode,u8* pu8InBuf,u8 u8InLen,u8 u8OutBufSize,u8* pu8OutLen,u8* pu8OutBuf);
+extern u8 QCSG_Dlt645FrameJudge(u8* pu8Data,u8* pu8DataLen);
+extern u8 QCSG_MakeLogInFrame(u8* pu8Addr,u8* pu8Pseq,u16 u16OutBufSize,u16* pu16OutLen,u8* pu8OutBuf);
+extern u8 QCSG_MakeHeartBeatFrame(u8* pu8Addr,u8* pu8Pseq,u16 u16OutBufSize,u16* pu16OutLen,u8* pu8OutBuf);
+extern u8 QCSG_MakeLogOutFrame(u8* pu8Addr,u8* pu8Pseq,u16 u16OutBufSize,u16* pu16OutLen,u8* pu8OutBuf);
+extern void QCSG_NoticeReconnect(u8 u8ChNo);
+extern void QCSG_NoticeDIChange(QCSG_DICHANGE_E eDi,u8 u8Flag);
+extern u8 QCSG_GetDIChange(QCSG_DICHANGE_E eDi);
+extern u8 QCSG_ResLinkFrameSend(u8 u8ChNo,u8 u8FrameFlag,QCSG_RESOLVE_INFO_S* pstQCSG_Info);
+extern u8 QCSG_ReqLinkFrameSend(u8 u8ChNo,u8 u8FrameFlag,QCSG_ACTIVEREPORT_S* pstReport_Info);
+extern u8 QCSG_TakeProtocolFrame(u16 u16InLen,u8* pu8InBuf,u16* pu16OutLen,u8* pu8OutBuf);
+extern u8 QCSG_TakeProtocolInfo(u16 u16InLen,u8* pu8InBuf,QCSG_RESOLVE_INFO_S* pstQCSG_Info);
+extern u8 QCSG_Chek_Addr(u8* pu8Addr);
+extern u8 QCSG_Chek_Tpv(u8* pu8Data,QCSG_RESOLVE_INFO_S* pstQCSG_Info);
+extern u16 QCSG_TakePn(u8* pu8Buf);
+extern u32 QCSG_TakeFn(u8* pu8Buf);
+extern u8 QCSG_Check_AFN04_0AFn(u32 u32Fn,u16* pu16Index);
+extern u8 QCSG_CheckAlarmConfig(u32 DI);
+extern u8 QCSG_CheckAlarmReport(u32 DI);
+extern u8 QCSG_CheckEventMask(u32 DI);
+
+extern u8 QCSG_GetRelayTaskByPort(u8 u8Port,u8 u8Dimnumber,u8* pu8GetCount,u8* pu32TaskList);
+extern void QCSG_GetPnListByPort(u8 u8Port,u8 u8MaxListNum,u16* pu16PnList,u16* pu16PnNum);
+extern void QCSG_UpdatePnList(u8 u8Port,u16 u8MaxListNum,u16* pu16PnList,u16* pu8PnNum);
+extern void QCSG_UpdateRelayTaskList(u8 u8Port,QCSG_RDRELAYTASK_INFO_S* pstRelayTask_List);
+extern void QCSG_UpdateCommonTaskList(QCSG_RDCOMMONTASK_INFO_S* pstCommonTask_List);
+extern u8 QCSG_Judge_TaskTiming(TIME_PARAM_S* pstLastTime,TIME_PARAM_S* pstCurrTime,TIME_PARAM_S* pstRefTime,u8 u8PeriodValue,u8 u8PeriodUnit);
+extern u8 QCSG_Check_RDIdent(u32 u32Ident);
+extern u8 QCSG_GetDlt645Ident_By_AFN0C0DTable(u32 u32NwIdent,u8 u8ProtocolType,u8* pu8IdentNum,u32* pu32IdentList,u8* pu8ConvertMethodList,u8* pu8LenList);
+
+extern u8 QCSG_GetDlt645DataLen_By_Ident(u8 u8AFn,u32 u32Ident,u8* pu8Len);
+extern u8 QCSG_PortToHwPort(u8 u8ProtocolPort,u8* pu8HwPort);
+extern void QCSG_WriteTerminal_State(u8 u8YXState,u8 u8YKState);
+extern void QCSG_ReadTerminal_State(u8* pu8YXState,u8* pu8YKState);
+extern void QCSG_ClearStatisticsData(void);
+u32 GetRealTimeAMRReqAddr(u32 PORTn);
+
+
+AMR_ENUM GetAMREnumByDI(u32 DI);
+
+ResultEnum CheckDataDensity(AMR_ENUM AmrEnum, u32 DataDensity, u32 SampleUnit, u32 SamplePeriod);
+
+u8 GetDefaultDataDensityByAMREnum(AMR_ENUM AmrEnum);
+
+ResultEnum AddTimeByDataDensity(RealTimeYYStruct* Time, u32 DataDensity);
+
+ResultEnum DecTimeByDataDensity(RealTimeYYStruct* Time, u32 DataDensity);
+
+ResultEnum ConvertTimeToDataDensityTime(RealTimeYYStruct* Time, u32 DataDensity);
+
+ResultEnum TimeCompare(AMR_ENUM AmrEnum, RealTimeYYStruct* Time1, RealTimeYYStruct* Time2);
+
+void RealTimeToYYTime(RealTimeStruct *srcTime,RealTimeYYStruct *dstTime);
+
+void YYTimeToRealTime(RealTimeYYStruct *srcTime,RealTimeStruct *dstTime);
+
+u16 GetMaxPnNum(void);
+
+u16 SplitPnToList(u16 Pn, u16* List, u8 PnCheck);
+
+u16 SetAlarmEventDIDataByDIInfo(u8* DstData, u8* SrcData, const DIDataInfoStruct* DiInfo);
+
+ResultEnum MeterAddrCheck(u8* MeterAddr);
+
+u32 SwitchPnToNum(u32 Pn);
+
+u32 SwitchNumToPn(u32 PnNum);
+
+ResultEnum QCSG_GetLastUnUsedPnByAddr(u32 *Pn, u8* Addr);
+
+ResultEnum QCSG_CheckPnAddrIsDuplicate(u32 Pn, u8* Addr);
+
+ResultEnum CheckPnValid(u16 Pn);
+
+u8 CaculateWeek(RealTimeStruct* Time);
+
+u8 LeapYearCheck(u16 sYear);
+
+ResultEnum TimeValidCheck(RealTimeStruct* Calendar);
+
+u16 QCSG_BuildFrameByStruct(QCSGFrameStruct* Frame, u8* Buf);
+
+u32 SumCaculation(u8 *Data, u32 Len);
+
+
+
+void MemCopy(void *dest, const void *source, u16 bytes);
+
+s8 MemCompare(const void *source0, const void *source1, u16 bytes);
+
+void MemSet(void *dest, u8 val, u16 bytes);
+
+ResultEnum DLT645FrameCheck(u8* FrameBuf, u32 FrameLen);
+
+u16 CCIT16_CRC(u8* ptr, u32 len);
+
+u16 CRC16_XMODEM(u8 *ptr, u32 len);//hz添加 20180416
+
+ResultEnum BCD_Check(u8* BCD, u32 Len);
+
+u16 ConvertToBpsCtrl(u8 BaudRateCode, u8 ParityCode, u8 DataBitCode, u8 StopBitCode);
+
+void DataResetAction(u32 ResetType, u32 PORTn);
+
+void GetACSampleAddr(u8* Addr);
+
+void SetACSampleAddr(u8* Addr);
+
+u16 FindNwDIFrom_AFN0C_0D_Tbl(u32 NwDI);
+
+u16 FindMeterInNodeList(u8* MeterAddr, NodeListStruct* NodeList, u16 NodeListNum);
+
+u16 FindMeterInMP(u8* MeterAddr, u16 NodeListNum);
+
+u16 FindPortNextMeterInNodeList(u32 PortID, NodeListStruct* NodeList, u16 StartIndex, u16 NodeListNum);
+
+void TerminalReportAlarmInc(void);
+
+void TerminalReportAlarmDec(void);
+
+void TerminalSetLastAlarmDI(u32 AlarmDI);
+
+u32 TerminalGetLastAlarmDI(void);
+
+u32 Get_GPRSState(u32 PORTn);
+
+void Get_GPRSLocalIPAddr(u8* IPAddr);
+
+void Get_GPRSLocalPort(u8* LocalPort);
+
+u32 Get_GPRSSignaldBm(void);
+
+u32 Get_GPRSRxTxBytes(void);
+
+u32 Get_GPRSStoredRxTxBytes(void);
+
+void Clear_GPRSRxTxBytes(void);
+
+u32 Get_GPRSCurMonthRxTxBytes(void);
+
+u32 GetTerminalRouterInfo(u8* Data);
+
+void Get_MeterAMRSuccessInfo(u8* AmrInfo);
+
+u8 Build645Frame(DLT645FrameStruct* SrcFrame, u8* FrameBuf, u8 Need_FE);
+
+void Init_ALLPara(void);
+
+u32 Get_ADC3(u32 Channel,u32 mul,u32 div,u32 ADDR_RAM);//ADC;入口:Channel=ADC3通道号,mul=乘数,div=除数,ADDR_RAM=结果存放地址; 返回:测量值(0xffffffff表示转换失败)
+
+
+
+
+extern u8 QCSG_GetDlt645_EDMI_Ident_By_AFN0C0DTable(u32 u32NwIdent,u8 u8ProtocolType,u8* pu8IdentNum,u32* pu32IdentList,u8* pu8ConvertMethodList,u8* pu8LenList);
+
+u16 EDMI_Crc_Cala(u8* buffer,u32 len);
+
+u8 IEEE754_Float_Arithmetic(u32 Float_Value,u32* Output_Value);
+
+u8 IEEE754_Double_Arithmetic(u64 Float_Value,u64* Output_Value);
+
+u8 QCSG_GetEDMIRealFrame(u8* pu8InData,u8* pu8DataLen);
+
+u8 QCSG_EDMIFrameJudge(u8* pu8Data,u8* pu8DataLen);
+
+u8 QCSG_MakeEDMIFrame_Test(u8 u8FEFlag,u8* pu8MeterID,u8 u8CtrlCode,u8* pu8InBuf,u8 u8InLen,u8 u8OutBufSize,u8* pu8OutLen,u8* pu8OutBuf);
+
+u8 QCSG_MakeEDMIFrame(u8* pu8MeterID,u8* ident,u8* psendlen,u8* psendbuf);
+
+u8 QCSG_MakeEDMIFrame_RT(u8* pu8MeterID,u32 NwIdent,u8* psendlen,u8* psendbuf);
+
+u32 get_edmi_method(u32 nwcmd);
+
+u16 cal_CRC16(u8* buffer,int len);
+
+ResultEnum EDMI_FrameCheck(u8* FrameBuf, u32 FrameLen);
+
+
+#endif /* __QCSG_PUBLICFUNC_H */
+/************************ (C) COPYRIGHT M***********************END OF FILE****/
+

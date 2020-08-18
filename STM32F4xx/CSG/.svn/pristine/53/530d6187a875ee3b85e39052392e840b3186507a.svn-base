@@ -1,0 +1,66 @@
+/*************************************************
+版  权:正泰仪表智能终端部
+文  件:QCSG_AlarmEvent.h
+作  者:zhaoyun
+版  本:1.00
+日  期:20171120
+描  述:终端告警以及事件接口
+*************************************************/
+/* Includes ------------------------------------------------------------------*/
+
+/* Private typedef -----------------------------------------------------------*/
+/* Private define ------------------------------------------------------------*/
+/* Private constants ---------------------------------------------------------*/
+/* Private macro -------------------------------------------------------------*/
+/* Private variables ---------------------------------------------------------*/
+/* Public variables ----------------------------------------------------------*/
+/* Private function prototypes -----------------------------------------------*/
+/* Private functions ---------------------------------------------------------*/
+/* Public functions ----------------------------------------------------------*/
+
+ResultEnum GenerateVoltageLossCntAlarm_E2000040(u32 MeterIndex, ThresholdParaStruct* Threshold);
+
+ResultEnum GenerateCurrentLossCntAlarm_E2000041(u32 MeterIndex, ThresholdParaStruct* Threshold);
+
+ResultEnum GenerateCurrentReverseCntAlarm_E2000042(u32 MeterIndex, ThresholdParaStruct* Threshold);
+
+ResultEnum GenerateAVoltageLossAlarm_E2000016(u32 MeterIndex);
+
+ResultEnum GenerateACurrentLossAlarm_E2000013(u32 MeterIndex);
+
+ResultEnum GenerateACurrentReverseAlarm_E200000D(u32 MeterIndex);
+
+ResultEnum GenerateTimeFaultAlarm_E200003E(u32 MeterIndex, ThresholdParaStruct* Threshold);
+
+ResultEnum GenerateMeterAMRFailAlarm_E200003D(u32 MeterIndex);
+
+ResultEnum GenerateMeterRelayControlAlarm_E200003C(u32 MeterIndex, ThresholdParaStruct* Threshold);
+
+ResultEnum GenerateRelayChangeAlarm_E200003B(u32 MeterIndex, ThresholdParaStruct* Threshold);
+
+ResultEnum GenerateProgramTimeChangeAlarm_E2000035(u32 MeterIndex, ThresholdParaStruct* Threshold);
+
+ResultEnum GenerateTimeRateChangeAlarm_E2000036(u32 MeterIndex, ThresholdParaStruct* Threshold);
+
+ResultEnum GenerateLessMoneyAlarm_E200002B(u32 MeterIndex, ThresholdParaStruct* Threshold);
+
+ResultEnum GeneratePowerStopAlarm_E200002E(u32 MeterIndex, ThresholdParaStruct* Threshold);
+
+ResultEnum GeneratePowerGoDownAlarm_E200002C(u32 MeterIndex);
+
+ResultEnum GenerateTerminalGPRSRxTxByteAlarm_E200003A(void);
+
+ResultEnum GeneratePowerEvent(RealTimeStruct* PowerUpTime, RealTimeStruct* PowerDownTime);
+
+ResultEnum GenerateTerminalPowerUpAndDownAlarm(RealTimeStruct* PowerTime, u32 PowerType);
+
+ResultEnum GenerateParaChangeEvent(u32 DI);
+
+ResultEnum GenerateMpControlEvent(u32 ControlType, MeasurePointStruct* Mp, u32 Pn, u32 Time);
+
+void ClearNodeAlarmFlag(void);
+
+
+/************************ (C) COPYRIGHT zhaoyun***********************END OF FILE****/
+
+

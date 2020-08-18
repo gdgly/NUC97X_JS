@@ -1,0 +1,4 @@
+
+
+void On38KHz(void)//开38KHz时钟(TIM3_CH3)
+void Off38KHz(void)//关38KHz时钟(TIM3_CH3)

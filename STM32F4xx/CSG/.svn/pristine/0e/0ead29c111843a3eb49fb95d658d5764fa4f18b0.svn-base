@@ -1,0 +1,3733 @@
+/*************************************************
+版  权:正泰仪表智能终端部
+文  件:QCSG_PublicFunc.c
+作  者:mxn
+版  本:1.00
+日  期:20170601
+描  述:南网协议公用函数文件
+*************************************************/
+/* Includes ------------------------------------------------------------------*/
+#include <string.h>
+#include <stdio.h>
+#include "../Hcsg/ProjectCSG.h"
+#include "../Hcsg/ERAM_For_Mxn.h"
+#include "../Hcsg/IRAM_TerminalSaveCSG.h"
+#include "../QCSG_Head/QCSG_UpLinkProtocol.h"
+#include "../QCSG_Head/QCSG_LocalLinkProtocol.h"
+#include "../QCSG_Head/QCSG_DLT645_Protocol.h"
+
+#include "../QCSG_Head/Chint_Type.h"
+#include "../QCSG_Head/QCSG_PublicDefine.h"
+#include "../QCSG_Head/QCSG_PublicFunc.h"
+#include "../QCSG_Head/QCSG_Table.h"
+#include "../Device/MEMRW.h"
+#include "../MS/msFILE.h"
+#include "../MS/MS.h"
+#include "../QCSG_Data/QCSG_DefaultData.h"
+#include "../QCSG_Data/QCSG_NandDataInterface.h"
+#include "../STM32F4xx/STM32F4xx_UART.h"
+#include "../Calculate/Calculate.h"
+#include "../QCSG_Head/QCSG_Hal.h"
+/* Private typedef -----------------------------------------------------------*/
+/* Private define ------------------------------------------------------------*/
+/* Private constants ---------------------------------------------------------*/
+/* Private macro -------------------------------------------------------------*/
+/* Private variables ---------------------------------------------------------*/
+/* Public variables ----------------------------------------------------------*/
+/* Private function prototypes -----------------------------------------------*/
+/* Private functions ---------------------------------------------------------*/
+/* Public functions ----------------------------------------------------------*/
+/**--------------------------------------------------------------------
+*功    能:绝对值
+*输入参数:fx
+*输出参数:无
+*返    回:绝对值
+--------------------------------------------------------------------**/
+ float QCSG_ABS(float fx) 
+ {
+     if(fx < 0)
+	 {
+		fx = fx * (-1);		 
+	 }
+     return fx;
+ }
+/**--------------------------------------------------------------------
+*功    能:SIN函数
+*输入参数:fx
+*输出参数:无
+*返    回:SIN值
+--------------------------------------------------------------------**/
+float QCSG_SIN(float fx) 
+{
+	float fB = 1.2732395447; 
+	float fC = -0.4052847346;
+	float fP = 0.2310792853;
+	float fPI = 3.1415926536;
+	float fy = 0.0;
+	if(fx > fPI) 
+	{
+		fx = fx - 2 * fPI; 
+	}
+	fy = fB * fx + fC * fx * QCSG_ABS(fx);
+	fy = fP * (fy * QCSG_ABS(fy) - fy) + fy;
+	return fy;
+}
+/**--------------------------------------------------------------------
+*功    能:COS函数
+*输入参数:fx
+*输出参数:无
+*返    回:COS值
+--------------------------------------------------------------------**/
+float QCSG_COS(float fx) 
+{
+	float fQ = 1.5707963268;
+	float fPI = 3.1415926536;
+	fx = fx + fQ; 
+	if(fx > fPI) 
+	{
+		fx = fx - 2 * fPI; 
+	}
+	return QCSG_SIN(fx);
+}
+ /**--------------------------------------------------------------------
+*功    能:开方函数
+*输入参数:fa
+*输出参数:无
+*返    回:开方值
+--------------------------------------------------------------------**/
+float QCSG_SQRT(float fa)
+{
+	double fx,fy;
+	fx = 0.0;
+	fy = fa / 2;
+	while(fx != fy)
+	{
+		fx = fy;
+		fy = (fx + fa / fx) / 2;
+	}
+	return fx;
+}
+/**--------------------------------------------------------------------
+*功    能:获取当前通道连接状态
+*输入参数:u8ChNo
+*输出参数:无
+*返    回:是否连接
+--------------------------------------------------------------------**/
+u8 QCSG_GetCHConnectState(u8 u8ChNo)
+{
+    return TRUE;
+}
+/**--------------------------------------------------------------------
+*功    能:时间减法
+*输入参数:TimerMinuend，TimerSubtrahend
+*输出参数:
+       Result[0] //相差的天数,
+       Result[1] //相差的小时数(除去天之后）,
+       Result[2] //相差的分钟数（除去小时之后）,
+       Result[3] //相差的秒数（除去分钟之后）
+*返    回:
+       >0 TimerMinuend>TimerSubtrahend;
+       =0 TimerMinuend=TimerSubtrahend;
+       <0 TimerMinuend<TimerSubtrahend;
+--------------------------------------------------------------------**/
+s8 QCSG_TimerSub(TIME_PARAM_S* pstTimerMinuend,TIME_PARAM_S* pstTimerSubtrahend,u32* pu32Result)
+{
+    u32 const MonthDay[]={0, 31, 59, 90, 120, 151,181, 212, 243, 273, 304, 334};
+
+    s8 compPos = 1;
+    s8 compZero = 0;
+    s8 compNeg = -1;
+    s8 s8compResult = compZero;
+    TIME_PARAM_S* pstTimerHi = NULL;
+    TIME_PARAM_S* pstTimerLo = NULL;
+    u32 au32subYear[2], au32submonth[2], au32subday[2], u32hivalue = 0, u32lovalue = 0;
+    u32 u32tempday = 0, u32tempYear = 0;
+    int i = 0;
+
+    au32subYear[0] = (pstTimerMinuend->u8Year >> 4 ) * 10 + (pstTimerMinuend->u8Year & 0x0f);
+    au32subYear[1] = (pstTimerSubtrahend->u8Year >> 4) * 10 + (pstTimerSubtrahend->u8Year & 0x0f);
+    au32submonth[0] = ((pstTimerMinuend->u8Month&0x1f) >> 4) * 10 + (pstTimerMinuend->u8Month & 0x0f) - 1;
+    au32submonth[1] = ((pstTimerSubtrahend->u8Month&0x1f) >> 4) * 10 + (pstTimerSubtrahend->u8Month & 0x0f) - 1;
+    au32subday[0] = (pstTimerMinuend->u8Day >> 4) * 10 + (pstTimerMinuend->u8Day & 0x0f) - 1;
+    au32subday[1] = (pstTimerSubtrahend->u8Day >> 4) * 10 + (pstTimerSubtrahend->u8Day & 0x0f) - 1;
+    for (i = 0; i < 2; ++i)
+    {
+        u32tempYear = au32subYear[i] / 4;
+        u32tempday = au32subYear[i] * 365 + u32tempYear + 1;
+        if (((au32subYear[i] % 4) == 0) && (au32submonth[i] <= 1))
+        {
+            u32tempday = u32tempday - 1;
+        }
+        au32subday[i] = au32subday[i] + u32tempday;
+        u32tempday = MonthDay[au32submonth[i]];
+        au32subday[i] = au32subday[i] + u32tempday;
+    }
+    if (au32subday[0] > au32subday[1])
+    {
+        pu32Result[0] = au32subday[0] - au32subday[1];
+        pstTimerHi = pstTimerMinuend;
+        pstTimerLo = pstTimerSubtrahend;
+        s8compResult = compPos;
+    }
+    else if (au32subday[0] < au32subday[1])
+    {
+        pu32Result[0] = au32subday[1] - au32subday[0];
+        pstTimerLo = pstTimerMinuend;
+        pstTimerHi = pstTimerSubtrahend;
+        s8compResult = compNeg;
+    }
+    else
+    {
+        pu32Result[0] = 0;
+    }
+    if (compZero == s8compResult)
+    {
+        if (pstTimerMinuend->u8Hour > pstTimerSubtrahend->u8Hour)
+        {
+            pstTimerHi = pstTimerMinuend;
+            pstTimerLo = pstTimerSubtrahend;
+            s8compResult = compPos;
+        }
+        else if (pstTimerMinuend->u8Hour < pstTimerSubtrahend->u8Hour)
+        {
+            pstTimerLo = pstTimerMinuend;
+            pstTimerHi = pstTimerSubtrahend;
+            s8compResult = compNeg;
+        }
+        else
+        {
+            pu32Result[1] = 0;
+        }
+        if (compZero != s8compResult)
+        {
+            u32hivalue = (pstTimerHi->u8Hour >> 4) * 10 + (pstTimerHi->u8Hour & 0x0f);
+            u32lovalue = (pstTimerLo->u8Hour >> 4) * 10 + (pstTimerLo->u8Hour & 0x0f);
+            pu32Result[1] = u32hivalue - u32lovalue;
+        }
+    }
+    else
+    {
+        if (pstTimerHi->u8Hour > pstTimerLo->u8Hour)
+        {
+            u32hivalue = (pstTimerHi->u8Hour >> 4) * 10 + (pstTimerHi->u8Hour & 0x0f);
+            u32lovalue = (pstTimerLo->u8Hour >> 4) * 10 + (pstTimerLo->u8Hour & 0x0f);
+            pu32Result[1] = u32hivalue - u32lovalue;
+        }
+        else if (pstTimerHi->u8Hour < pstTimerLo->u8Hour)
+        {
+            u32hivalue = (pstTimerHi->u8Hour >> 4) * 10 + (pstTimerHi->u8Hour & 0x0f);
+            u32lovalue = (pstTimerLo->u8Hour >> 4) * 10 + (pstTimerLo->u8Hour & 0x0f);
+            pu32Result[1] = u32hivalue + 24 - u32lovalue;
+            pu32Result[0] = pu32Result[0] - 1;
+        }
+        else
+        {
+            pu32Result[1] = 0;
+        }
+    }
+    if (compZero == s8compResult)
+    {
+        if (pstTimerMinuend->u8Minute > pstTimerSubtrahend->u8Minute)
+        {
+            pstTimerHi = pstTimerMinuend;
+            pstTimerLo = pstTimerSubtrahend;
+            s8compResult = compPos;
+        }
+        else if (pstTimerMinuend->u8Minute < pstTimerSubtrahend->u8Minute)
+        {
+            pstTimerLo = pstTimerMinuend;
+            pstTimerHi = pstTimerSubtrahend;
+            s8compResult = compNeg;
+        }
+        else
+        {
+            pu32Result[2] = 0;
+        }
+        if (compZero != s8compResult)
+        {
+            u32hivalue = (pstTimerHi->u8Minute >> 4) * 10 + (pstTimerHi->u8Minute & 0x0f);
+            u32lovalue = (pstTimerLo->u8Minute >> 4) * 10 + (pstTimerLo->u8Minute & 0x0f);
+            pu32Result[2] = u32hivalue - u32lovalue;
+        }
+    }
+    else
+    {
+        if (pstTimerHi->u8Minute > pstTimerLo->u8Minute)
+        {
+            u32hivalue = (pstTimerHi->u8Minute >> 4) * 10 + (pstTimerHi->u8Minute & 0x0f);
+            u32lovalue = (pstTimerLo->u8Minute >> 4) * 10 + (pstTimerLo->u8Minute & 0x0f);
+            pu32Result[2] = u32hivalue - u32lovalue;
+        }
+        else if (pstTimerHi->u8Minute < pstTimerLo->u8Minute)
+        {
+            u32hivalue = (pstTimerHi->u8Minute >> 4) * 10 + (pstTimerHi->u8Minute & 0x0f);
+            u32lovalue = (pstTimerLo->u8Minute >> 4) * 10 + (pstTimerLo->u8Minute & 0x0f);
+            pu32Result[2] = u32hivalue + 60 - u32lovalue;
+            if (pu32Result[1] >= 1)
+            {
+                pu32Result[1] = pu32Result[1] - 1;
+            }
+            else
+            {
+                pu32Result[1] = pu32Result[1] + 24 - 1;
+                pu32Result[0] = pu32Result[0] - 1;
+            }
+        }
+        else
+        {
+            pu32Result[2] = 0;
+        }
+    }
+    if (compZero == s8compResult)
+    {
+        if (pstTimerMinuend->u8Second > pstTimerSubtrahend->u8Second)
+        {
+            pstTimerHi = pstTimerMinuend;
+            pstTimerLo = pstTimerSubtrahend;
+            s8compResult = compPos;
+        }
+        else if (pstTimerMinuend->u8Second < pstTimerSubtrahend->u8Second)
+        {
+            pstTimerLo = pstTimerMinuend;
+            pstTimerHi = pstTimerSubtrahend;
+            s8compResult = compNeg;
+        }
+        else
+        {
+            pu32Result[3] = 0;
+        }
+        if (compZero != s8compResult)
+        {
+            u32hivalue = (pstTimerHi->u8Second >> 4) * 10 + (pstTimerHi->u8Second & 0x0f);
+            u32lovalue = (pstTimerLo->u8Second >> 4) * 10 + (pstTimerLo->u8Second & 0x0f);
+            pu32Result[3] = u32hivalue - u32lovalue;
+        }
+    }
+    else
+    {
+        if (pstTimerHi->u8Second > pstTimerLo->u8Second)
+        {
+            u32hivalue = (pstTimerHi->u8Second >> 4) * 10 + (pstTimerHi->u8Second & 0x0f);
+            u32lovalue = (pstTimerLo->u8Second >> 4) * 10 + (pstTimerLo->u8Second & 0x0f);
+            pu32Result[3] = u32hivalue - u32lovalue;
+        }
+        else if (pstTimerHi->u8Second < pstTimerLo->u8Second)
+        {
+            u32hivalue = (pstTimerHi->u8Second >> 4) * 10 + (pstTimerHi->u8Second & 0x0f);
+            u32lovalue = (pstTimerLo->u8Second >> 4) * 10 + (pstTimerLo->u8Second & 0x0f);
+            pu32Result[3] = u32hivalue + 60 - u32lovalue;
+            if (pu32Result[2] >= 1)
+            {
+                pu32Result[2] = pu32Result[2] - 1;
+            }
+            else
+            {
+                pu32Result[2] = pu32Result[2] + 60 - 1;
+                if (pu32Result[1] >= 1)
+                {
+                    pu32Result[1] = pu32Result[1] - 1;
+                }
+                else
+                {
+                    pu32Result[1] = pu32Result[1] + 24 - 1;
+                    pu32Result[0] = pu32Result[0] - 1;
+                }
+            }
+        }
+        else
+        {
+            pu32Result[3] = 0;
+        }
+    }
+    return  s8compResult;
+}
+/**--------------------------------------------------------------------
+*功    能:时间加法：TIME_PARAM_S *TimerTotal = TIME_PARAM_S *TimerAddend+u32 Sec
+*输入参数:TimerAddend,Sec
+*输出参数:TimerTotal
+*返    回:年溢出
+--------------------------------------------------------------------**/
+u8 QCSG_TimerAdd(TIME_PARAM_S *TimerAddend,u32 Sec,TIME_PARAM_S *TimerTotal)	
+{
+	u32 AddSecond = Sec % 60;
+	u32 AddMinute = Sec / 60;
+	u32 AddHour = 0, AddDay = 0;
+	u32 const MonthDay[]={0, 31, 28, 31, 30, 31, 30,31, 31, 30, 31, 30, 31};
+	u32 CurYear = 0, CurMonth = 0, CurDay = 0, CurHour = 0, CurMinute = 0, CurSecond = 0;
+	u32 CurMonthDay = 0;
+	u8 AddResult = 0;
+	
+	TimerTotal->u8Month=TimerTotal->u8Month&0x1f;
+	TimerAddend->u8Month=TimerAddend->u8Month&0x1f;
+	TimerTotal->u8Year = TimerAddend->u8Year;
+	TimerTotal->u8Month = TimerAddend->u8Month;
+	TimerTotal->u8Day = TimerAddend->u8Day;
+	TimerTotal->u8Hour = TimerAddend->u8Hour;
+	TimerTotal->u8Minute = TimerAddend->u8Minute;
+	TimerTotal->u8Second = TimerAddend->u8Second;
+	CurYear = (TimerTotal->u8Year >> 4) * 10 + (TimerTotal->u8Year & 0x0f);
+	CurMonth = (TimerTotal->u8Month >> 4) * 10 + (TimerTotal->u8Month & 0x0f);
+	CurDay = (TimerTotal->u8Day >> 4) * 10 + (TimerTotal->u8Day & 0x0f);
+	CurHour = (TimerTotal->u8Hour >> 4) * 10 + (TimerTotal->u8Hour & 0x0f);
+	CurMinute = (TimerTotal->u8Minute >> 4) * 10 + (TimerTotal->u8Minute & 0x0f);
+	CurSecond = (TimerTotal->u8Second >> 4) * 10 + (TimerTotal->u8Second & 0x0f);
+	if ((CurSecond + AddSecond) < 60)
+	{
+		CurSecond = CurSecond + AddSecond;
+	}
+	else
+	{
+		CurSecond = CurSecond + AddSecond - 60;
+		AddMinute = AddMinute + 1;
+	}
+	AddHour = AddMinute / 60;
+	AddMinute = AddMinute % 60;
+	if ((CurMinute + AddMinute) < 60)
+	{
+		CurMinute = CurMinute + AddMinute;
+	}
+	else
+	{
+		CurMinute = CurMinute + AddMinute - 60;
+		AddHour = AddHour + 1;
+	}
+	AddDay = AddHour / 24;
+	AddHour = AddHour % 24;
+	if ((CurHour + AddHour) < 24)
+	{
+		CurHour = CurHour + AddHour;
+	}
+	else
+	{
+		CurHour = CurHour + AddHour - 24;
+		AddDay = AddDay + 1;
+	}
+	while (AddDay > 0)
+	{
+		CurMonthDay = MonthDay[CurMonth];
+		if ((2 == CurMonth) && (0 == CurYear % 4))
+		{
+			CurMonthDay = CurMonthDay + 1;
+		}
+		if ((CurDay + AddDay) <= CurMonthDay)
+		{
+			CurDay = CurDay + AddDay;
+			AddDay = 0;
+		}
+		else
+		{
+			AddDay = AddDay + CurDay - CurMonthDay - 1;
+			CurDay = 1;
+			if ((CurMonth + 1) <= 12)
+			{
+				CurMonth = CurMonth + 1;
+			}
+			else
+			{
+				CurMonth = 1;
+				CurYear = CurYear + 1;
+				if (CurYear > 99)
+				{
+					AddResult = 1;
+					AddDay = 0;
+				}
+			}
+		}
+	}
+	TimerTotal->u8Year = (CurYear / 10) * 16 + (CurYear % 10);
+	TimerTotal->u8Month = (CurMonth / 10) * 16 + (CurMonth % 10);
+	TimerTotal->u8Day = (CurDay / 10) * 16 + (CurDay % 10);
+	TimerTotal->u8Hour = (CurHour / 10) * 16 + (CurHour % 10);
+	TimerTotal->u8Minute = (CurMinute / 10) * 16 + (CurMinute % 10);
+	TimerTotal->u8Second = (CurSecond / 10) * 16 + (CurSecond % 10);
+	return	AddResult;
+}
+/**--------------------------------------------------------------------
+*功    能:BCD判断
+*输入参数:u8Bcd
+*输出参数:无
+*返    回:计算结果
+--------------------------------------------------------------------**/
+u8 QCSG_BCDCheck(u8* pu8Data,u32 u16DataLen)
+{
+	u32 i = 0;
+	for(i = 0;i < u16DataLen;i++)
+	{
+		if(((pu8Data[i] & 0x0F)> 0x09) || ((pu8Data[i] & 0xF0)> 0x90))
+		{
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+/**--------------------------------------------------------------------
+*功    能:BCD2HEX
+*输入参数:u8Bcd
+*输出参数:无
+*返    回:计算结果
+--------------------------------------------------------------------**/
+u8 QCSG_BCD2HEX(u8 u8BCD)
+{
+    u8 u8Hex;
+    u8Hex = (u8BCD>>4)*10 + (u8BCD&0x0F);
+    return u8Hex;
+}
+/**--------------------------------------------------------------------
+*功    能:HEX2BCD
+*输入参数:u8HEX
+*输出参数:无
+*返    回:计算结果
+--------------------------------------------------------------------**/
+u8 QCSG_HEX2BCD(u8 u8HEX)
+{
+    u8 u8Bcd;
+    u8Bcd = (u8HEX/10)*16 + (u8HEX%10);
+    return u8Bcd;
+}
+/**--------------------------------------------------------------------
+*功    能:BCD加1
+*输入参数:u8Bcd
+*输出参数:无
+*返    回:计算结果
+--------------------------------------------------------------------**/
+u8 QCSG_IncBCD(u8 u8Bcd)
+{
+    u8Bcd = u8Bcd+1;
+    if((u8Bcd & 0x0f) >= 0x0a)
+    {
+        u8Bcd = u8Bcd + 0x10;
+        u8Bcd = u8Bcd & 0xf0;
+    }
+    return u8Bcd;
+}
+/**--------------------------------------------------------------------
+*功    能:BCD减1，不够减，返回0
+*输入参数:u8Bcd
+*输出参数:无
+*返    回:计算结果
+--------------------------------------------------------------------**/
+u8 QCSG_DecBCD(u8 u8Bcd)
+{
+    if(u8Bcd==0)
+    {
+        return 0;
+    }
+    if((u8Bcd&0x0f)==0)
+    {
+        u8Bcd=u8Bcd-0x10;
+        u8Bcd=u8Bcd|0x09;
+    }
+    else
+    {
+        u8Bcd=u8Bcd-1;
+    }
+    return u8Bcd;
+}
+/**--------------------------------------------------------------------
+*功    能:计算一个月最大天数
+*输入参数:pstTime
+*输出参数:无
+*返    回:计算结果
+--------------------------------------------------------------------**/
+u8 QCSG_CalMaxDateInMonth(TIME_PARAM_S* pstTime)
+{
+    u8 u8Month,u8Year,u8MaxDate;
+    u8 au8MonthDay[13]={0x00, 0x31, 0x28, 0x31, 0x30, 0x31, 0x30,0x31, 0x31, 0x30, 0x31,0x30, 0x31};
+
+    u8Month = pstTime->u8Month & 0x1f;
+    u8Month = (((u8Month>>4) & 0x0f) * 10) + (u8Month & 0x0f);
+    u8Year = pstTime->u8Year;
+    u8Year = (((u8Year>>4) & 0x0f) * 10) + (u8Year & 0x0f);
+    if((u8Month > 12)||(u8Month == 0))
+    {
+        return 0;
+    }
+    u8MaxDate = au8MonthDay[u8Month];
+    if((u8Month == 2) && (u8Year%4 == 0))
+    {
+        u8MaxDate = u8MaxDate + 1;
+    }
+    return u8MaxDate;
+
+/* 	u8 MaxDayNum = 0;
+	u8 YearInDec = (pstTime->Year & 0x0F) + (pstTime->Year >> 4) * 10;
+	switch(pstTime->u8Month & 0x1F)
+	{
+		case 0x01:
+		case 0x03:
+		case 0x05:
+		case 0x07:
+		case 0x08:
+		case 0x10:
+		case 0x12:
+			MaxDayNum = 31;
+			break;
+		case 0x02:
+			if(LeapYearCheck(YearInDec + 2000) != 0)			//闰年判断
+			{
+				MaxDayNum = 29;
+			}
+			else
+			{
+				MaxDayNum = 28;
+			}
+			break;
+		case 0x04:
+		case 0x06:
+		case 0x09:
+		case 0x11:
+			MaxDayNum = 30;
+			break;
+		default:
+			MaxDayNum = 31;
+			break;
+		
+	}
+	return MaxDayNum;
+*/
+}
+
+u8 QCSG_IncOneSecond(TIME_PARAM_S* pstTime)
+{
+	pstTime->u8Second = QCSG_IncBCD(pstTime->u8Second);
+	if(pstTime->u8Second >= 0x60)
+	{
+		pstTime->u8Second = 0x00;
+		QCSG_IncOneMinute(pstTime);
+	}
+    return TRUE;
+}
+
+u8 QCSG_DecOneSecond(TIME_PARAM_S* pstTime)
+{
+	if(pstTime->u8Second == 0x00)
+	{
+		pstTime->u8Second = 0x59;
+		QCSG_DecOneMinute(pstTime);
+	}
+	else
+	{
+		pstTime->u8Second = QCSG_DecBCD(pstTime->u8Second);
+	}
+    return TRUE;
+}
+
+/**--------------------------------------------------------------------
+*功    能:时间加一小时
+*输入参数:pstTime
+*输出参数:pstTime
+*返    回:是否加成功
+--------------------------------------------------------------------**/
+u8 QCSG_IncOneMinute(TIME_PARAM_S* pstTime)
+{
+	pstTime->u8Minute = QCSG_IncBCD(pstTime->u8Minute);
+	if(pstTime->u8Minute >= 0x60)
+	{
+		pstTime->u8Minute = 0x00;
+		QCSG_IncOneHour(pstTime);
+	}
+    return TRUE;
+}
+
+u8 QCSG_DecOneMinute(TIME_PARAM_S* pstTime)
+{
+	if(pstTime->u8Minute == 0x00)
+	{
+		pstTime->u8Minute = 0x59;
+		QCSG_DecOneHour(pstTime);
+	}
+	else
+	{
+		pstTime->u8Minute = QCSG_DecBCD(pstTime->u8Minute);
+	}
+    return TRUE;
+}
+/**--------------------------------------------------------------------
+*功    能:时间加一小时
+*输入参数:pstTime
+*输出参数:pstTime
+*返    回:是否加成功
+--------------------------------------------------------------------**/
+u8 QCSG_IncOneHour(TIME_PARAM_S* pstTime)
+{
+	pstTime->u8Hour = QCSG_IncBCD(pstTime->u8Hour);
+	if(pstTime->u8Hour >= 0x24)
+	{
+		pstTime->u8Hour = 0x00;
+		QCSG_IncOneDay(pstTime);
+	}
+    return TRUE;
+}
+u8 QCSG_DecOneHour(TIME_PARAM_S* pstTime)
+{
+	if(pstTime->u8Hour == 0x00)
+	{
+		pstTime->u8Hour = 0x23;
+		QCSG_DecOneDay(pstTime);
+	}
+	else
+	{
+		pstTime->u8Hour = QCSG_DecBCD(pstTime->u8Hour);
+	}
+    return TRUE;
+}
+
+/**--------------------------------------------------------------------
+*功    能:时间加一天
+*输入参数:pstTime
+*输出参数:pstTime
+*返    回:是否加成功
+--------------------------------------------------------------------**/
+u8 QCSG_IncOneDay(TIME_PARAM_S* pstTime)
+{
+    u8 u8MaxData,u8Month;
+
+    u8MaxData = QCSG_CalMaxDateInMonth(pstTime);
+    if(u8MaxData == 0)
+    {
+        return FALSE;
+    }
+    pstTime->u8Day = QCSG_IncBCD(pstTime->u8Day);
+    if(pstTime->u8Day > u8MaxData)
+    {
+        pstTime->u8Day = 1;
+        u8Month = pstTime->u8Month;
+        u8Month = QCSG_IncBCD(u8Month);
+        pstTime->u8Month = u8Month;
+        if(u8Month > 0x12)
+        {
+            pstTime->u8Month = 1;
+            pstTime->u8Year = QCSG_IncBCD(pstTime->u8Year);
+        }
+    }
+    return TRUE;
+}
+/**--------------------------------------------------------------------
+*功    能:时间减一天
+*输入参数:pstTime
+*输出参数:pstTime
+*返    回:是否减成功
+--------------------------------------------------------------------**/
+u8 QCSG_DecOneDay(TIME_PARAM_S* pstTime)
+{
+    u8 u8MaxData;
+
+    if(pstTime->u8Day == 1)
+    {
+        if(pstTime->u8Month == 1)
+        {
+            pstTime->u8Month = 0x12;
+            pstTime->u8Year = QCSG_DecBCD(pstTime->u8Year);
+        }
+        else
+        {
+            pstTime->u8Month = QCSG_DecBCD(pstTime->u8Month);
+        }
+        u8MaxData = QCSG_CalMaxDateInMonth(pstTime);
+        if(u8MaxData == 0)
+        {
+            return FALSE;
+        }
+        pstTime->u8Day = u8MaxData;
+    }
+    else
+    {
+        pstTime->u8Day = QCSG_DecBCD(pstTime->u8Day);
+    }
+    return TRUE;
+}
+/**--------------------------------------------------------------------
+*功    能:时间加一月
+*输入参数:pstTime
+*输出参数:pstTime
+*返    回:是否加成功
+--------------------------------------------------------------------**/
+u8 QCSG_IncOneMonth(TIME_PARAM_S* pstTime)
+{
+    u8 u8Month;
+
+    u8Month = pstTime->u8Month;
+    u8Month = QCSG_IncBCD(u8Month);
+    pstTime->u8Month = u8Month;
+    if(u8Month > 0x12)
+    {
+        pstTime->u8Month = 1;
+        pstTime->u8Year = QCSG_IncBCD(pstTime->u8Year);
+    }
+    return TRUE;
+}
+/**--------------------------------------------------------------------
+*功    能:时间减一月
+*输入参数:pstTime
+*输出参数:pstTime
+*返    回:是否减成功
+--------------------------------------------------------------------**/
+u8 QCSG_DecOneMonth(TIME_PARAM_S* pstTime)
+{
+    if(pstTime->u8Month == 1)
+    {
+        pstTime->u8Month = 0x12;
+        pstTime->u8Year = QCSG_DecBCD(pstTime->u8Year);
+    }
+    else
+    {
+        pstTime->u8Month = QCSG_DecBCD(pstTime->u8Month);
+    }
+    return TRUE;
+}
+/**--------------------------------------------------------------------
+*功    能:计算和校验
+*输入参数:pu8Buf：输入缓冲，u16Len：缓冲长度
+*输出参数:无
+*返    回:计算结果
+--------------------------------------------------------------------**/
+u8 QCSG_CalCs(u8* pu8Buf,u16 u16Len)
+{
+    u16 i = 0;
+    u8  u8Result = 0;
+
+    for(i = 0;i < u16Len;i++)
+        u8Result = u8Result+pu8Buf[i];
+    return u8Result;
+}
+/**--------------------------------------------------------------------
+*功    能:组645协议帧
+*输入参数:pu8MeterID：表号，u8CtrlCode：控制码，u16InLen:输入缓冲长度，pu8InBuf:输入缓冲
+*输出参数:pu16OutLen：输出帧长度，pu8OutBuf：输入缓冲
+*返    回:组帧成功or失败
+--------------------------------------------------------------------**/
+u8 QCSG_MakeDLT645Frame(u8 u8FEFlag,u8* pu8MeterID,u8 u8CtrlCode,u8* pu8InBuf,u8 u8InLen,u8 u8OutBufSize,u8* pu8OutLen,u8* pu8OutBuf)
+{
+	u8 i = 0,u8StartPos = 0;
+    if((u8InLen + 16) > u8OutBufSize)
+    {
+        return FALSE;
+    }
+	for(i = 0;i < u8InLen;i++)
+	{
+		pu8InBuf[i] += 0x33;
+	}
+	if(u8FEFlag == TRUE)
+	{
+		memset(&pu8OutBuf[0],0xFE,4);
+		u8StartPos = 4;
+	}
+    pu8OutBuf[u8StartPos] = DLT_645_HEAD;
+    memcpy(&pu8OutBuf[u8StartPos + 1],pu8MeterID,6);
+    pu8OutBuf[u8StartPos + 7] = DLT_645_HEAD;
+    pu8OutBuf[u8StartPos + 8] = u8CtrlCode;
+    pu8OutBuf[u8StartPos + 9] = u8InLen;
+    memcpy(&pu8OutBuf[u8StartPos + 10],pu8InBuf,u8InLen);
+    pu8OutBuf[u8StartPos + 10 + u8InLen] = (u8)SumCaculation(&pu8OutBuf[u8StartPos],u8InLen + 10);
+    pu8OutBuf[u8StartPos + 11 + u8InLen] = DLT_645_TAIL;
+	
+	if(u8FEFlag == TRUE)
+	{
+		(*pu8OutLen) =  u8InLen + 16;
+	}
+	else
+	{
+		(*pu8OutLen) =  u8InLen + 12;
+	}
+    
+    return TRUE;
+}
+/**--------------------------------------------------------------------
+*功    能:645帧格式判断
+*输入参数:pu8Data：输入缓冲，pu8DataLen：缓冲长度
+*输出参数:pu8Data：输入缓冲，pu8DataLen：缓冲长度
+*返    回:格式是否正确
+--------------------------------------------------------------------**/
+u8 QCSG_Dlt645FrameJudge(u8* pu8Data,u8* pu8DataLen)
+{
+	//数据层已经保证645帧的准确性，并且已经去掉0xFE，20170814
+    u8 i = 0;
+    u8 Len = 0;
+    u8 Pos = 0xFF;
+    if(((*pu8DataLen) == 0)||((*pu8DataLen) < 12)||((*pu8DataLen) > 216))
+    {
+        return FALSE;
+    }
+    for(i = 0; i < (*pu8DataLen); i++)
+    {
+        if(pu8Data[i] == 0x68)
+        {
+            Pos = i;
+            break;
+        }
+    }
+    if(Pos >= (*pu8DataLen))
+    {
+        return FALSE;
+    }
+    Len = pu8Data[Pos + 9];
+    if(Len > 200)
+    {
+        return FALSE;
+    }
+    if(pu8Data[Pos + Len + 2 + 10 - 1] != 0x16)
+    {
+        return FALSE;
+    }
+    if(pu8Data[Pos + Len + 2 + 10 - 2] != (u8)SumCaculation(&pu8Data[Pos],Len + 10))
+    {
+        return FALSE;
+    }
+    memcpy(&pu8Data[0],&pu8Data[Pos],Len + 10 + 2);
+    (*pu8DataLen) = Len + 10 + 2;
+    return TRUE;
+}
+/**--------------------------------------------------------------------
+*功    能:组南网登录帧
+*输入参数:pu8Addr:终端地址,u8Pseq:帧序列号
+*输出参数:pu8OutLen：输出帧长度，pu8OutBuf：输出缓冲
+*返    回:成功or失败
+--------------------------------------------------------------------**/
+u8 QCSG_MakeLogInFrame(u8* pu8Addr,u8* pu8Pseq,u16 u16OutBufSize,u16* pu16OutLen,u8* pu8OutBuf)
+{
+    u8 u8Index = 0;
+    u32 u32Ident = 0xE0001000;
+
+    if(u16OutBufSize < 26)
+    {
+        return FALSE;
+    }
+    (*pu8Pseq) ++;
+    if((*pu8Pseq) > 0x0F)
+    {
+        (*pu8Pseq) = 0;
+    }
+    pu8OutBuf[u8Index] = QCSG_FRAME_HEAD;
+    u8Index++;
+    pu8OutBuf[u8Index] = 1 + 7 + 1 + 1 + 2 + 4 + 2;//C+A+AFN+SEQ+DA+IDENT+DATA(2)
+    u8Index++;
+    pu8OutBuf[u8Index] = 0;
+    u8Index++;
+    pu8OutBuf[u8Index] = 1 + 7 + 1 + 1 + 2 + 4 + 2;//C+A+AFN+SEQ+DA+IDENT+DATA(2)
+    u8Index++;
+    pu8OutBuf[u8Index] = 0;
+    u8Index++;
+    pu8OutBuf[u8Index] = QCSG_FRAME_HEAD;
+    u8Index++;
+    //C
+    pu8OutBuf[u8Index] = C_LINK_ACTREPORT;
+    u8Index++;
+    //A
+    memcpy(&pu8OutBuf[u8Index],pu8Addr,6);
+    u8Index+=6;
+    pu8OutBuf[u8Index] = 0;
+    u8Index++;
+    //AFN
+    pu8OutBuf[u8Index] = 0x02;
+    u8Index++;
+    //SEQ
+    pu8OutBuf[u8Index] = 0x10 | (*pu8Pseq);
+    u8Index++;
+    //DA
+    memset(&pu8OutBuf[u8Index],0,2);
+    u8Index+=2;
+    //IDENT
+    memcpy(&pu8OutBuf[u8Index],(u8*)&u32Ident,4);
+    u32Ident+=4;
+    //规约版本号
+    pu8OutBuf[u8Index] = 0x00;
+    u8Index++;
+    pu8OutBuf[u8Index] = 0x01;
+    u8Index++;
+    //CS
+    pu8OutBuf[u8Index] = (u8)SumCaculation(&pu8OutBuf[6],u8Index - 6);
+    u8Index++;
+    pu8OutBuf[u8Index] = QCSG_FRAME_TAIL;
+    u8Index++;
+    (*pu16OutLen) = u8Index;
+    return TRUE;
+}
+/**--------------------------------------------------------------------
+*功    能:组南心跳帧
+*输入参数:pu8Addr:终端地址,u8Pseq:帧序列号
+*输出参数:pu8OutLen：输出帧长度，pu8OutBuf：输出缓冲
+*返    回:成功or失败
+--------------------------------------------------------------------**/
+u8 QCSG_MakeHeartBeatFrame(u8* pu8Addr,u8* pu8Pseq,u16 u16OutBufSize,u16* pu16OutLen,u8* pu8OutBuf)
+{
+    u8 u8Index = 0;
+    u32 u32Ident = 0xE0001001;
+
+    if(u16OutBufSize < 26)
+    {
+        return FALSE;
+    }
+    (*pu8Pseq) ++;
+    if((*pu8Pseq) > 0x0F)
+    {
+        (*pu8Pseq) = 0;
+    }
+    pu8OutBuf[u8Index] = QCSG_FRAME_HEAD;
+    u8Index++;
+    pu8OutBuf[u8Index] = 1 + 7 + 1 + 1 + 2 + 4 + 2;//C+A+AFN+SEQ+DA+IDENT+DATA(2)
+    u8Index++;
+    pu8OutBuf[u8Index] = 0;
+    u8Index++;
+    pu8OutBuf[u8Index] = 1 + 7 + 1 + 1 + 2 + 4 + 2;//C+A+AFN+SEQ+DA+IDENT+DATA(2)
+    u8Index++;
+    pu8OutBuf[u8Index] = 0;
+    u8Index++;
+    pu8OutBuf[u8Index] = QCSG_FRAME_HEAD;
+    u8Index++;
+    //C
+    pu8OutBuf[u8Index] = C_LINK_ACTREPORT;
+    u8Index++;
+    //A
+    memcpy(&pu8OutBuf[u8Index],pu8Addr,6);
+    u8Index+=6;
+    pu8OutBuf[u8Index] = 0;
+    u8Index++;
+    //AFN
+    pu8OutBuf[u8Index] = 0x02;
+    u8Index++;
+    //SEQ
+    pu8OutBuf[u8Index] = 0x10 | (*pu8Pseq);
+    u8Index++;
+    //DA
+    memset(&pu8OutBuf[u8Index],0,2);
+    u8Index+=2;
+    //IDENT
+    memcpy(&pu8OutBuf[u8Index],(u8*)&u32Ident,4);
+    u32Ident+=4;
+    //CS
+    pu8OutBuf[u8Index] = (u8)SumCaculation(&pu8OutBuf[6],u8Index - 6);
+    u8Index++;
+    pu8OutBuf[u8Index] = QCSG_FRAME_TAIL;
+    u8Index++;
+    (*pu16OutLen) = u8Index;
+    return TRUE;
+}
+/**--------------------------------------------------------------------
+*功    能:组南网退出登录帧
+*输入参数:pu8Addr:终端地址,u8Pseq:帧序列号
+*输出参数:pu8OutLen：输出帧长度，pu8OutBuf：输出缓冲
+*返    回:成功or失败
+--------------------------------------------------------------------**/
+u8 QCSG_MakeLogOutFrame(u8* pu8Addr,u8* pu8Pseq,u16 u16OutBufSize,u16* pu16OutLen,u8* pu8OutBuf)
+{
+    u8 u8Index = 0;
+    u32 u32Ident = 0xE0001002;
+
+    if(u16OutBufSize < 26)
+    {
+        return FALSE;
+    }
+    (*pu8Pseq) ++;
+    if((*pu8Pseq) > 0x0F)
+    {
+        (*pu8Pseq) = 0;
+    }
+    pu8OutBuf[u8Index] = QCSG_FRAME_HEAD;
+    u8Index++;
+    pu8OutBuf[u8Index] = 1 + 7 + 1 + 1 + 2 + 4 + 2;//C+A+AFN+SEQ+DA+IDENT+DATA(2)
+    u8Index++;
+    pu8OutBuf[u8Index] = 0;
+    u8Index++;
+    pu8OutBuf[u8Index] = 1 + 7 + 1 + 1 + 2 + 4 + 2;//C+A+AFN+SEQ+DA+IDENT+DATA(2)
+    u8Index++;
+    pu8OutBuf[u8Index] = 0;
+    u8Index++;
+    pu8OutBuf[u8Index] = QCSG_FRAME_HEAD;
+    u8Index++;
+    //C
+    pu8OutBuf[u8Index] = C_LINK_ACTREPORT;
+    u8Index++;
+    //A
+    memcpy(&pu8OutBuf[u8Index],pu8Addr,6);
+    u8Index+=6;
+    pu8OutBuf[u8Index] = 0;
+    u8Index++;
+    //AFN
+    pu8OutBuf[u8Index] = 0x02;
+    u8Index++;
+    //SEQ
+    pu8OutBuf[u8Index] = 0x10 | (*pu8Pseq);
+    u8Index++;
+    //DA
+    memset(&pu8OutBuf[u8Index],0,2);
+    u8Index+=2;
+    //IDENT
+    memcpy(&pu8OutBuf[u8Index],(u8*)&u32Ident,4);
+    u32Ident+=4;
+    //CS
+    pu8OutBuf[u8Index] = (u8)SumCaculation(&pu8OutBuf[6],u8Index - 6);
+    u8Index++;
+    pu8OutBuf[u8Index] = QCSG_FRAME_TAIL;
+    u8Index++;
+    (*pu16OutLen) = u8Index;
+    return TRUE;
+}
+/**--------------------------------------------------------------------
+*功    能:通知通道重新连接
+*输入参数:u8ChNo：通道号
+*输出参数:无
+*返    回:无
+--------------------------------------------------------------------**/
+void QCSG_NoticeReconnect(u8 u8ChNo)
+{
+
+}
+/**--------------------------------------------------------------------
+*功    能:通知重要参数变更,上行协议设置参数时调用
+*输入参数:u8ChNo：通道号
+*输出参数:无
+*返    回:无
+--------------------------------------------------------------------**/
+void QCSG_NoticeDIChange(QCSG_DICHANGE_E eDi,u8 u8Flag)
+{
+	u8* pu8Value = (u8*)QCSG_DICHARGE_FLAG_LIST;
+	pu8Value[eDi] = u8Flag;
+}
+/**--------------------------------------------------------------------
+*功    能:获取参数变更信息，控制及抄表适时调用
+*输入参数:u8ChNo：通道号
+*输出参数:无
+*返    回:无
+--------------------------------------------------------------------**/
+u8 QCSG_GetDIChange(QCSG_DICHANGE_E eDi)
+{
+	u8* pu8Value = (u8*)QCSG_DICHARGE_FLAG_LIST;
+	return pu8Value[eDi];
+}
+/**--------------------------------------------------------------------
+*功    能:南网响应帧组织及发送
+*输入参数:u8ChNo:发送通道，u8FrameFlag：同FIR，FIN定义，pstQCSG_Info：协议缓冲
+*输出参数:无
+*返    回:发送成功or失败
+--------------------------------------------------------------------**/
+u8 QCSG_ResLinkFrameSend(u8 u8ChNo,u8 u8FrameFlag,QCSG_RESOLVE_INFO_S* pstQCSG_Info)
+{
+    u16 u16Index = 0;
+
+    if(pstQCSG_Info->u16TxLen == 0x00)
+    {
+        return FALSE;
+    }
+    pstQCSG_Info->u16TxLField = 1 + 7 + 1 + 1 + pstQCSG_Info->u16TxLen;//C+A+AFN+SEQ+DATA
+    pstQCSG_Info->u8TxCField = (0x80 | 0x08);
+    pstQCSG_Info->u8TxAFNField = pstQCSG_Info->u8RxAFNField;
+    pstQCSG_Info->u8SendBuf[u16Index] = QCSG_FRAME_HEAD;
+    u16Index++;
+    pstQCSG_Info->u8SendBuf[u16Index] = (u8)(pstQCSG_Info->u16TxLField);
+    u16Index++;
+    pstQCSG_Info->u8SendBuf[u16Index] = (u8)(pstQCSG_Info->u16TxLField >> 8);
+    u16Index++;
+    pstQCSG_Info->u8SendBuf[u16Index] = (u8)(pstQCSG_Info->u16TxLField);
+    u16Index++;
+    pstQCSG_Info->u8SendBuf[u16Index] = (u8)(pstQCSG_Info->u16TxLField >> 8);
+    u16Index++;
+    pstQCSG_Info->u8SendBuf[u16Index] = QCSG_FRAME_HEAD;
+    u16Index++;
+    pstQCSG_Info->u8SendBuf[u16Index] = pstQCSG_Info->u8TxCField;
+    u16Index++;
+    memcpy(&pstQCSG_Info->u8SendBuf[u16Index],pstQCSG_Info->u8RxAddrField,7);
+    u16Index+=7;
+    pstQCSG_Info->u8SendBuf[u16Index] = pstQCSG_Info->u8TxAFNField;
+    u16Index++;
+    pstQCSG_Info->u8SendBuf[u16Index] = (pstQCSG_Info->u8RxSEQField & 0x0F) | u8FrameFlag;
+    u16Index++;
+    memcpy(&pstQCSG_Info->u8SendBuf[u16Index],pstQCSG_Info->u8TxBuf,pstQCSG_Info->u16TxLen);
+    u16Index+=pstQCSG_Info->u16TxLen;
+    pstQCSG_Info->u8SendBuf[u16Index] = (u8)SumCaculation(&pstQCSG_Info->u8SendBuf[6],u16Index - 6);
+    u16Index++;
+    pstQCSG_Info->u8SendBuf[u16Index] = QCSG_FRAME_TAIL;
+    u16Index++;
+    pstQCSG_Info->u16SendLen = u16Index;
+    /*
+     * TODO:数据发送函数待补充
+     */
+    return TRUE;
+}
+/**--------------------------------------------------------------------
+*功    能:南网上报帧组织及发送
+*输入参数:u8ChNo:发送通道，u8FrameFlag：同FIR，FIN定义，pstReport_Info：协议缓冲
+*输出参数:无
+*返    回:发送成功or失败
+--------------------------------------------------------------------**/
+u8 QCSG_ReqLinkFrameSend(u8 u8ChNo,u8 u8FrameFlag,QCSG_ACTIVEREPORT_S* pstReport_Info)
+{
+    u16 u16Index = 0;
+
+    if(pstReport_Info->stReport_Info.u16TxLen == 0)
+    {
+        return FALSE;
+    }
+    pstReport_Info->u8ReportPseq ++;
+    if(pstReport_Info->u8ReportPseq > 0x0F)
+    {
+        pstReport_Info->u8ReportPseq = 0;
+    }
+    pstReport_Info->stReport_Info.u16TxLField = 1 + 7 + 1 + 1 + pstReport_Info->stReport_Info.u16TxLen;//C+A+AFN+SEQ+DATA
+    pstReport_Info->stReport_Info.u8TxCField = (0x80 | 0x40 | 0x0B);
+    pstReport_Info->stReport_Info.u8SendBuf[u16Index] = QCSG_FRAME_HEAD;
+    u16Index++;
+    pstReport_Info->stReport_Info.u8SendBuf[u16Index] = (u8)(pstReport_Info->stReport_Info.u16TxLField);
+    u16Index++;
+    pstReport_Info->stReport_Info.u8SendBuf[u16Index] = (u8)(pstReport_Info->stReport_Info.u16TxLField >> 8);
+    u16Index++;
+    pstReport_Info->stReport_Info.u8SendBuf[u16Index] = (u8)(pstReport_Info->stReport_Info.u16TxLField);
+    u16Index++;
+    pstReport_Info->stReport_Info.u8SendBuf[u16Index] = (u8)(pstReport_Info->stReport_Info.u16TxLField >> 8);
+    u16Index++;
+    pstReport_Info->stReport_Info.u8SendBuf[u16Index] = QCSG_FRAME_HEAD;
+    u16Index++;
+    pstReport_Info->stReport_Info.u8SendBuf[u16Index] = pstReport_Info->stReport_Info.u8TxCField;
+    u16Index++;
+    memcpy(&pstReport_Info->stReport_Info.u8SendBuf[u16Index],pstReport_Info->stReport_Info.u8RxAddrField,7);
+    u16Index+=7;
+    pstReport_Info->stReport_Info.u8SendBuf[u16Index] = pstReport_Info->stReport_Info.u8TxAFNField;
+    u16Index++;
+    pstReport_Info->stReport_Info.u8SendBuf[u16Index] = (pstReport_Info->u8ReportPseq & 0x0F) | u8FrameFlag;
+    u16Index++;
+    memcpy(&pstReport_Info->stReport_Info.u8SendBuf[u16Index],pstReport_Info->stReport_Info.u8TxBuf,pstReport_Info->stReport_Info.u16TxLen);
+    u16Index+=pstReport_Info->stReport_Info.u16TxLen;
+    pstReport_Info->stReport_Info.u8SendBuf[u16Index] = (u8)SumCaculation(&pstReport_Info->stReport_Info.u8SendBuf[6],u16Index - 6);
+    u16Index++;
+    pstReport_Info->stReport_Info.u8SendBuf[u16Index] = QCSG_FRAME_TAIL;
+    u16Index++;
+    pstReport_Info->stReport_Info.u16SendLen = u16Index;
+    /*
+     * TODO:数据发送函数待补充
+     */
+    return TRUE;
+}
+/**--------------------------------------------------------------------
+*功    能:提取南网协议帧
+*输入参数:u16InLen:输入缓冲长度，pu8InBuf:输入缓冲
+*输出参数:pu16OutLen：输出帧长度，pu8OutBuf：输出缓冲
+*返    回:提取成功or失败
+--------------------------------------------------------------------**/
+u8 QCSG_TakeProtocolFrame(u16 u16InLen,u8* pu8InBuf,u16* pu16OutLen,u8* pu8OutBuf)
+{
+    u16 i = 0;
+    u16 u16Len1 = 0,u16Len2 = 0,u16FrameLen = 0;
+    u8 u8crc = 0;
+
+    while(1)
+    {
+        if((pu8InBuf[i] == 0x68)&&(pu8InBuf[i + 5] == 0x68))
+        {
+            u16Len1 = pu8InBuf[i + 1] + pu8InBuf[i + 2] * 0x100;
+            u16Len2 = pu8InBuf[i + 3] + pu8InBuf[i + 4] * 0x100;
+            if(u16Len1 != u16Len2)
+            {
+                i++;
+                if(i >= u16InLen)
+                {
+                    break;
+                }
+                continue;
+            }
+            if((i + u16Len1 + 2) >= u16InLen)
+            {
+                i++;
+                if(i >= u16InLen)
+                {
+                    break;
+                }
+                continue;
+            }
+            if(pu8InBuf[i + 5 + u16Len1 + 2] != 0x16)
+            {
+                i++;
+                if(i >= u16InLen)
+                {
+                    break;
+                }
+                continue;
+            }
+            u8crc = (u8)SumCaculation(&pu8InBuf[i + 6],u16Len1);
+            if(u8crc != pu8InBuf[i + 5 + u16Len1 + 1])
+            {
+                i++;
+                if(i >= u16InLen)
+                {
+                    break;
+                }
+                continue;
+            }
+        }
+        else
+        {
+            i++;
+            if(i >= u16InLen)
+            {
+                break;
+            }
+        }
+    }
+    if(i >= u16InLen)
+    {
+        return FALSE;
+    }
+    u16FrameLen = u16Len1 + 8;
+    memcpy(pu8OutBuf,&pu8InBuf[i],u16FrameLen);
+    *pu16OutLen = u16FrameLen;
+    return TRUE;
+}
+/**--------------------------------------------------------------------
+*功    能:提取南网协议帧中关键元素
+*输入参数:u16InLen:输入长度，pu8InBuf：输入缓冲
+*输出参数:pstQCSG_Info
+*返    回:提取成功or失败
+--------------------------------------------------------------------**/
+u8 QCSG_TakeProtocolInfo(u16 u16InLen,u8* pu8InBuf,QCSG_RESOLVE_INFO_S* pstQCSG_Info)
+{
+    u16 u16DataLen = 0;
+    u8 u8Afn = 0;
+
+    u16DataLen = pu8InBuf[1] + pu8InBuf[2] * 0x100;
+    if(u16DataLen > MAX_QCSG_FRAME_LEN)
+    {
+        return FALSE;
+    }
+    u8Afn = pu8InBuf[14];
+    if(u8Afn > 0x15)
+    {
+        return FALSE;
+    }
+    pstQCSG_Info->u16RxLField = u16DataLen;
+    pstQCSG_Info->u8RxCField = pu8InBuf[6];
+    pstQCSG_Info->u8RxAFNField = pu8InBuf[14];
+    pstQCSG_Info->u8RxSEQField = pu8InBuf[15];
+    memcpy(pstQCSG_Info->u8RxAddrField,&pu8InBuf[7],7);
+    return TRUE;
+}
+/**--------------------------------------------------------------------
+ *功    能:判断协议地址是否合法
+ *输入参数:pu8Addr：地址
+ *输出参数:无
+ *返    回:是否合法
+ --------------------------------------------------------------------**/
+u8 QCSG_Chek_Addr(u8* pu8Addr)
+{
+    /*
+     * TODO:待补充，读本机地址函数未确定
+     */
+    return TRUE;
+}
+/**--------------------------------------------------------------------
+ *功    能:判断时间标签
+ *输入参数:pu8Data：数据
+ *输出参数:pstQ13761_Info:输出缓冲
+ *返    回:是否合法
+ --------------------------------------------------------------------**/
+u8 QCSG_Chek_Tpv(u8* pu8Data,QCSG_RESOLVE_INFO_S* pstQCSG_Info)
+{
+    /*
+     * TODO:系统时间获取函数没明确，待完成此函数
+     */
+    return TRUE;
+}
+/**--------------------------------------------------------------------
+*功    能:提取Pn
+*输入参数:pu8Buf:缓冲
+*输出参数:无
+*返    回:Pn
+--------------------------------------------------------------------**/
+u16 QCSG_TakePn(u8* pu8Buf)
+{
+    //u8 DA2 = 0,DA1 = 0;
+    u16 u16Pn = 0;
+/*
+    DA2 = pu8Buf[1];
+    DA1 = pu8Buf[0];
+    if((DA2 == 0)&&(DA1 != 0))
+    {
+        //无效测量点
+        return 0xfffe;
+    }
+    if((DA2 == 0xff)&&(DA1 == 0xff))
+    {
+        //全部测量点
+        return 0xffff;
+    }
+    u16Pn = (u16)DA2;
+    u16Pn = u16Pn << 8;
+    u16Pn = u16Pn + DA1;
+    if(u16Pn > PN_MAX)
+    {
+        //无效测量点
+        return 0xfffe;
+    }
+*/
+    u16Pn += pu8Buf[1];
+    u16Pn <<= 8;
+    u16Pn += pu8Buf[0];
+    return u16Pn;
+}
+/**--------------------------------------------------------------------
+*功    能:提取Fn
+*输入参数:pucBuf:缓冲
+*输出参数:无
+*返    回:Fn
+--------------------------------------------------------------------**/
+u32 QCSG_TakeFn(u8* pu8Buf)
+{
+    u32 u32Fn = 0;
+
+    //u32Fn = pu8Buf[0] + pu8Buf[1] * 0x100 + pu8Buf[2] * 0x10000 + pu8Buf[3] * 0x1000000;
+    u32Fn += pu8Buf[3];
+	u32Fn <<= 8;
+	u32Fn += pu8Buf[2];
+	u32Fn <<= 8;
+	u32Fn += pu8Buf[1];
+	u32Fn <<= 8;
+	u32Fn += pu8Buf[0];
+    return u32Fn;
+}
+/**--------------------------------------------------------------------
+*功    能:判断AFN04，Fn是否支持
+*输入参数:u32Fn：输入Fn
+*输出参数:pu16Index:输出表格下标
+*返    回:解析结果
+--------------------------------------------------------------------**/
+u8 QCSG_Check_AFN04_0AFn(u32 u32Fn,u16* pu16Index)
+{
+    u16 i = 0,u16FnNum = 0;
+
+    u16FnNum = MAX_AFN040A_IDENT_NUM;
+    if((u32Fn & 0xFFFFFF00) == 0xE0000300)
+    {
+        //任务参数表格做了特殊处理
+        u32Fn = 0xE00003FF;
+    }
+    if((u32Fn & 0xFFFFFF00) == 0xE0000400)
+    {
+        //任务参数表格做了特殊处理
+        u32Fn = 0xE00004FF;
+    }
+    for(i = 0;i < u16FnNum;i++)
+    {
+        if(u32Fn == gc_stQCSGResolve_AFN04[i].u32Fn)
+        {
+            break;
+        }
+    }
+    if(i >= u16FnNum)
+    {
+        return FALSE;
+    }
+    *pu16Index = i;
+    return TRUE;
+}
+/**--------------------------------------------------------------------
+*功    能:判断告警是否配置
+*输入参数:u32AlarmIdent:告警标识
+*输出参数:无
+*返    回:TRUE：配置，FALSE：未配置
+--------------------------------------------------------------------**/
+u8 QCSG_CheckAlarmConfig(u32 DI)
+{
+	AlarmEventMaskParaStruct AlarmMaskPara;
+	u32 MaskPos = 0, MaskBit = 0;
+	
+	MR((u32)&AlarmMaskPara, ADDR_AlarmEventMaskPara, sizeof(AlarmEventMaskParaStruct));
+
+	MaskPos = (DI & 0x000000FF) - 1;
+	MaskBit = 1 << (MaskPos & 0x00000007);
+	MaskPos >>= 3;	
+	if((AlarmMaskPara.AlarmJudgeMask[MaskPos] & MaskBit) == 0) return FALSE;
+
+	return TRUE;
+}
+/**--------------------------------------------------------------------
+*功    能:判断告警上报是否配置
+*输入参数:u32AlarmIdent:告警标识
+*输出参数:无
+*返    回:TRUE：配置，FALSE：未配置
+--------------------------------------------------------------------**/
+u8 QCSG_CheckAlarmReport(u32 DI)
+{
+	AlarmEventMaskParaStruct AlarmMaskPara;
+	u32 MaskPos = 0, MaskBit = 0;
+	
+	MR((u32)&AlarmMaskPara, ADDR_AlarmEventMaskPara, sizeof(AlarmEventMaskParaStruct));
+
+	MaskPos = (DI & 0x000000FF) - 1;
+	MaskBit = 1 << (MaskPos & 0x00000007);
+	MaskPos >>= 3;	
+	if((AlarmMaskPara.AlarmReportMask[MaskPos] & MaskBit) == 0) return FALSE;
+
+	return TRUE;
+}
+
+u8 QCSG_CheckEventMask(u32 DI)
+{
+	AlarmEventMaskParaStruct AlarmMaskPara;
+	u32 MaskPos = 0, MaskBit = 0;
+	
+	MR((u32)&AlarmMaskPara, ADDR_AlarmEventMaskPara, sizeof(AlarmEventMaskParaStruct));
+
+	MaskPos = (DI & 0x000000FF) - 1;
+	MaskBit = 1 << (MaskPos & 0x00000007);
+	MaskPos >>= 3;	
+	if((AlarmMaskPara.EventRecordMask[MaskPos] & MaskBit) == 0) return FALSE;
+
+	return TRUE;
+}
+/**--------------------------------------------------------------------
+*功    能:根据端口号读取中继任务
+*输入参数:u8Port:端口号，u8Dimnumber：输入数组大小
+*输出参数:pu8GetCount：获取到的数量，pu8TaskList：任务列表,0,1,2,3...
+*返    回:读取结果
+--------------------------------------------------------------------**/
+u8 QCSG_GetRelayTaskByPort(u8 u8Port,u8 u8Dimnumber,u8* pu8GetCount,u8* pu32TaskList)
+{
+    u32 i=0;
+    u32 FlashAddr;
+    u32 ReadLen = sizeof(RelayTaskParaStruct);
+    RelayTaskParaStruct RelayTaskParam;
+    *pu8GetCount=0;
+    for(i=0;i<0xff;i++)
+    {
+        FlashAddr = ADDR_RelayTaskPara + (i * sizeof(RelayTaskParaStruct));
+        MR((u32)&RelayTaskParam, FlashAddr, ReadLen);
+        if((RelayTaskParam.Flag==1)&&(RelayTaskParam.ComPortId==u8Port))
+        {
+            pu32TaskList[*pu8GetCount]=(u8)i + 1;
+            *pu8GetCount +=1;
+            if(*pu8GetCount >u8Dimnumber)
+            {
+                break;
+            }
+        }
+    }
+    return TRUE;
+}
+/**--------------------------------------------------------------------
+*功    能:获取端口下的Pn列表
+*输入参数:u8Port:端口号
+*输出参数:pu16PnList,pu8PnNum
+*返    回:无
+--------------------------------------------------------------------**/
+void QCSG_GetPnListByPort(u8 u8Port,u8 u8MaxListNum,u16* pu16PnList,u16* pu16PnNum)
+{
+    MeasurePointStruct  MeasurePoint;
+    u32 i=0;
+    u32 offset=0,flashLen=0;
+    *pu16PnNum=0;
+    for(i = 0; i<MAX_PN_NUM;i++)
+    {
+        offset = ADDR_MP_START + i * (sizeof(MeasurePointStruct) + sizeof(PowerQualityParaStruct));
+        flashLen= sizeof(MeasurePointStruct) ;
+        MR((u32)&MeasurePoint, offset, flashLen);
+        if(MeasurePoint.State==0)
+        {
+            continue;
+        }
+        if(MeasurePoint.PortID==u8Port)
+        {
+            pu16PnList[*pu16PnNum] = (u16)SwitchNumToPn(i);
+            *pu16PnNum +=1;
+        }
+        if( *pu16PnNum >u8MaxListNum)
+        {
+            break;
+        }
+    }
+}
+/**--------------------------------------------------------------------
+*功    能:更新Pn列表
+*输入参数:u8Port:端口号
+*输出参数:pu16PnList,pu8PnNum
+*返    回:无
+--------------------------------------------------------------------**/
+void QCSG_UpdatePnList(u8 u8Port,u16 u8MaxListNum,u16* pu16PnList,u16* pu16PnNum)
+{
+	u8 i = 0,j = 0;
+	u16 u16PnNum = 0;
+	u16 u16PnList[MAX_PN_NUM];
+	
+	QCSG_GetPnListByPort(u8Port,u8MaxListNum,u16PnList,&u16PnNum);
+	for(i = 0;i < u16PnNum;i++)
+	{
+		for(j = 0;j < (*pu16PnNum);j++)
+		{
+			if(u16PnList[i] == pu16PnList[j])
+			{
+				break;
+			}
+		}
+		if(j >= (*pu16PnNum))
+		{
+			pu16PnList[*pu16PnNum] = u16PnList[i];
+			(*pu16PnNum)++;
+		}
+	}
+}
+/**--------------------------------------------------------------------
+*功    能:更新中继任务列表
+*输入参数:u8Port:端口号，pstRelayTask_List
+*输出参数:pstRelayTask_List
+*返    回:无
+--------------------------------------------------------------------**/
+void QCSG_UpdateRelayTaskList(u8 u8Port,QCSG_RDRELAYTASK_INFO_S* pstRelayTask_List)
+{
+    u8 i = 0,j = 0;
+    u8 u8NewTaskId = 0,u8OldTaskId = 0;
+
+    //更新执行的任务列表，往当前的表后面加
+    if(QCSG_GetRelayTaskByPort(u8Port,254,&pstRelayTask_List->u8NewRelayTaskNum,pstRelayTask_List->u8NewRelayTaskList) != TRUE)
+    {
+        return;
+    }
+    for(i = 0;i < pstRelayTask_List->u8NewRelayTaskNum;i++)
+    {
+        u8NewTaskId = pstRelayTask_List->u8NewRelayTaskList[i];
+        for(j = 0;j < pstRelayTask_List->u8RelayTaskNum;i++)
+        {
+            u8OldTaskId = pstRelayTask_List->u8RelayTaskList[j];
+            if(u8NewTaskId == u8OldTaskId)
+            {
+                break;
+            }
+        }
+        if(j >= pstRelayTask_List->u8RelayTaskNum)
+        {
+            pstRelayTask_List->u8RelayTaskList[pstRelayTask_List->u8RelayTaskNum] = u8NewTaskId;
+            pstRelayTask_List->u8RelayTaskNum++;
+        }
+    }
+}
+/**--------------------------------------------------------------------
+*功    能:更新普通任务
+*输入参数:pstCommonTask_List
+*输出参数:pstCommonTask_List
+*返    回:无
+--------------------------------------------------------------------**/
+void QCSG_UpdateCommonTaskList(QCSG_RDCOMMONTASK_INFO_S* pstCommonTask_List)
+{
+	NormalTaskParaStruct stNormalTaskPara;
+	u8 i = 0,j = 0;
+	u8 u8NewTaskId = 0,u8OldTaskId = 0;
+	u32 u32Ident = 0xE0000301,u32ReadLen = 0;
+	pstCommonTask_List->u8NewCommonTaskNum = 0;
+	for(i = 0;i < MAX_NORMAL_TASK_NUM;i++)
+	{
+		u32Ident += i;
+		if(NAND_ReadPara(PARA_Task,0,u32Ident,(u8*)&stNormalTaskPara,&u32ReadLen) != NO_ERROR)		
+		{
+			continue;
+		}
+		if(stNormalTaskPara.Flag != 1)
+		{
+			continue;
+		}
+		if(stNormalTaskPara.DANum == 0)
+		{
+			continue;
+		}
+		if(stNormalTaskPara.DataIDNum == 0)
+		{
+			continue;
+		}
+		if(stNormalTaskPara.DataIDNum > AMR_MAX_DATA_ID)
+		{
+			continue;
+		}
+		if(stNormalTaskPara.SamplePeriod == 0)
+		{			
+			continue;
+		}
+		if(TimeValidCheck(&stNormalTaskPara.ReportTime) != NO_ERROR)
+		{
+			continue;
+		}	
+		if(TimeValidCheck(&stNormalTaskPara.SampleTime) != NO_ERROR)
+		{
+			continue;
+		}
+		pstCommonTask_List->u8NewCommonTaskList[pstCommonTask_List->u8NewCommonTaskNum] = i + 1;
+		pstCommonTask_List->u8NewCommonTaskNum++;		
+	}
+	for(i = 0;i < pstCommonTask_List->u8NewCommonTaskNum;i++)
+	{
+		u8NewTaskId = pstCommonTask_List->u8NewCommonTaskList[i];
+		for(j = 0;j < pstCommonTask_List->u8CommonTaskNum;j++)
+		{
+			u8OldTaskId = pstCommonTask_List->u8CommonTaskList[j];
+			if(u8NewTaskId == u8OldTaskId)
+			{
+				break;
+			}
+		}
+		if(j >= pstCommonTask_List->u8CommonTaskNum)
+		{
+            pstCommonTask_List->u8CommonTaskList[pstCommonTask_List->u8CommonTaskNum] = u8NewTaskId;
+            pstCommonTask_List->u8CommonTaskNum++;			
+		}
+	}
+
+}
+/**--------------------------------------------------------------------
+*功    能:判断任务定时时间是否到
+*输入参数:pstCurrTime，pstRefTime，u8PeriodValue,u8PeriodUnit
+*输出参数:无
+*返    回:时间是否到
+--------------------------------------------------------------------**/
+u8 QCSG_Judge_TaskTiming(TIME_PARAM_S* pstLastTime,TIME_PARAM_S* pstCurrTime,TIME_PARAM_S* pstRefTime,u8 u8PeriodValue,u8 u8PeriodUnit)
+{
+    TIME_PARAM_S stLastTime;
+    TIME_PARAM_S stCurrTime;
+    TIME_PARAM_S stRefTime;
+    u32 au32Result[4];
+    u32 u32PeriodMinute = 0,u32IntervalMinute = 0,u32PeriodSec = 0,u32IntervalSec = 0;
+    u8 i= 0;
+
+    memcpy(&stLastTime,pstLastTime,sizeof(TIME_PARAM_S));
+    memcpy(&stCurrTime,pstCurrTime,sizeof(TIME_PARAM_S));
+    memcpy(&stRefTime,pstRefTime,sizeof(TIME_PARAM_S));
+    stCurrTime.u8Second = 0;
+    stRefTime.u8Second = 0;
+    if(QCSG_TimerSub(&stCurrTime,&stRefTime,au32Result) < 0)
+    {
+        //当前时间小于参考时间，返回时间未到
+        return FALSE;
+    }
+    if(QCSG_TimerSub(&stCurrTime,&stRefTime,au32Result) == 0)
+    {
+        //到了参考时间
+        return TRUE;
+    }
+    if(u8PeriodUnit == 3)
+    {
+        //周期单位为月
+        while(1)
+        {
+            for(i=0;i<u8PeriodValue;i++)
+            {
+                QCSG_IncOneMonth(&stRefTime);
+            }
+            if((stCurrTime.u8Year == stRefTime.u8Year)&&(stRefTime.u8Month == stCurrTime.u8Month))
+            {
+                break;
+            }
+            if(QCSG_TimerSub(&stCurrTime,&stRefTime,au32Result) < 0)
+            {
+                //时间加过，说明未到上报时间
+                return FALSE;
+            }
+        }
+        if((stCurrTime.u8Day == stRefTime.u8Day)&&(stCurrTime.u8Hour == stRefTime.u8Hour))
+        {
+            if((stCurrTime.u8Month != stLastTime.u8Month))
+            {
+                //上一次执行的月不一样，说明是新周期
+                return TRUE;
+            }
+        }
+        else
+        {
+            return FALSE;
+        }
+    }
+    if(u8PeriodUnit == 2)
+    {
+        //时间单位为日
+        while(1)
+        {
+            for(i=0;i<u8PeriodValue;i++)
+            {
+                QCSG_IncOneDay(&stRefTime);
+            }
+            if((stCurrTime.u8Year == stRefTime.u8Year)&&(stRefTime.u8Month == stCurrTime.u8Month)&&(stCurrTime.u8Day == stRefTime.u8Day))
+            {
+                break;
+            }
+            if(QCSG_TimerSub(&stCurrTime,&stRefTime,au32Result) < 0)
+            {
+                //时间加过，说明未到上报时间
+                return FALSE;
+            }
+        }
+        if(stCurrTime.u8Hour == stRefTime.u8Hour)
+        {
+            if((stCurrTime.u8Day != stLastTime.u8Day))
+            {
+                //上一次执行的日不一样，说明是新周期
+                return TRUE;
+            }
+        }
+        else
+        {
+            return FALSE;
+        }
+    }
+    if(u8PeriodUnit == 1)
+    {
+        //时间单位为小时
+        if(QCSG_TimerSub(&stCurrTime,&stRefTime,au32Result)>0)
+        {
+            u32PeriodMinute = u8PeriodValue * 60;
+            u32IntervalMinute = au32Result[0] * 24 * 60 + au32Result[1] * 60 + au32Result[2];
+            if((u32IntervalMinute % u32PeriodMinute) == 0)
+            {
+                //正好到周期
+                return TRUE;
+            }
+            else if((u32IntervalMinute % u32PeriodMinute) <= 10)
+            {
+                //防止错过周期，单位为小时的任务，到周期后的10min内，都认为是有效任务执行时间
+                if((stCurrTime.u8Hour != stLastTime.u8Hour))
+                {
+                    //上一次执行的小时不一样，说明是新周期
+                    return TRUE;
+                }
+            }
+            else
+            {
+                return FALSE;
+            }
+        }
+    }
+    if(u8PeriodUnit == 0)
+    {
+        //时间单位为分
+        if(QCSG_TimerSub(&stCurrTime,&stRefTime,au32Result)>0)
+        {
+            u32PeriodSec = u8PeriodValue * 60;
+            u32IntervalSec = au32Result[0] * 24 * 60 * 60 + au32Result[1] * 60 * 60 + au32Result[2] * 60;
+            if((u32IntervalSec % u32PeriodSec) == 0)
+            {
+                return TRUE;
+            }
+            else if((u32IntervalSec % u32PeriodSec) <= ((u8PeriodValue - 2) * 60))
+            {
+                //防止错过周期，单位为分的任务，到周期后的u8PeriodValue-1min内，都认为是有效任务执行时间
+                if(QCSG_TimerSub(&stCurrTime,&stLastTime,au32Result)>0)
+                {
+                    if((au32Result[0] != 0) || (au32Result[1] != 0) ||(au32Result[2] >= u8PeriodValue))
+                    {
+                        //上次执行时间与当前时间比，大于一个执行周期，说明是新周期
+                        return TRUE;
+                    }
+                }
+            }
+            else
+            {
+                return FALSE;
+            }
+        }
+    }
+    return FALSE;
+}
+/**--------------------------------------------------------------------
+*功    能:判断数据标识是否是非抄表数据
+*输入参数:u32Ident
+*输出参数:无
+*返    回:是否是非抄表数据
+--------------------------------------------------------------------**/
+u8 QCSG_Check_RDIdent(u32 u32Ident)
+{
+	if((u32Ident == 0x03100000)||(u32Ident == 0x03100100)||(u32Ident == 0x03100200)||(u32Ident == 0x03100300))
+	{
+		return TRUE;
+	}
+	if((u32Ident & 0xFF000000) == 0xE1000000)
+	{
+		return TRUE;
+	}
+	return FALSE;
+}
+/**--------------------------------------------------------------------
+*功    能:南网AFN0C、AFN0D数据标识转换为抄读的645数据标识
+*输入参数:u32NwIdent，u8ProtocolType
+*输出参数:pu8IdentNum，pu32IdentList
+*返    回:是否提取成功
+--------------------------------------------------------------------**/
+u8 QCSG_GetDlt645Ident_By_AFN0C0DTable(u32 u32NwIdent,u8 u8ProtocolType,u8* pu8IdentNum,u32* pu32IdentList,u8* pu8ConvertMethodList,u8* pu8LenList)
+{
+	u8 j = 0;
+	u16 i = 0;
+	(*pu8IdentNum) = 0;
+	
+	if(u8ProtocolType == METER_DLT645_97)
+	{
+		for(i = 0;i < MAX_AFN0C_0D_IDENT_NUM;i++)
+		{
+			if(u32NwIdent == gc_stQCSGAFN0C_0D_DLT645_Table[i].u32Fn)
+			{
+				for(j = 0;j < 12;j++)
+				{
+					if(gc_stQCSGAFN0C_0D_DLT645_Table[i].stDLT64597Resolve[j].u32Ident != 0xFFFFFFFF)
+					{
+						memcpy(&pu32IdentList[(*pu8IdentNum)],&gc_stQCSGAFN0C_0D_DLT645_Table[i].stDLT64597Resolve[j].u32Ident,4);
+						pu8ConvertMethodList[(*pu8IdentNum)] = gc_stQCSGAFN0C_0D_DLT645_Table[i].stDLT64597Resolve[j].u8TakeMethod;
+						pu8LenList[(*pu8IdentNum)] = gc_stQCSGAFN0C_0D_DLT645_Table[i].stDLT64597Resolve[j].u8BlDataLen;
+						(*pu8IdentNum)++;
+					}
+					else
+					{
+						break;
+					}
+				}
+				if(j == 0)
+				{
+					pu8ConvertMethodList[(*pu8IdentNum)] = gc_stQCSGAFN0C_0D_DLT645_Table[i].stDLT64597Resolve[j].u8TakeMethod;	
+				}
+				break;
+			}
+		}
+	}
+	if(u8ProtocolType == METER_DLT645_07)
+	{
+		for(i = 0;i < MAX_AFN0C_0D_IDENT_NUM;i++)
+		{
+			if(u32NwIdent == gc_stQCSGAFN0C_0D_DLT645_Table[i].u32Fn)
+			{
+				for(j = 0;j < 12;j++)
+				{
+					if(gc_stQCSGAFN0C_0D_DLT645_Table[i].stDLT64507Resolve[j].u32Ident != 0xFFFFFFFF)
+					{
+						memcpy(&pu32IdentList[(*pu8IdentNum)],&gc_stQCSGAFN0C_0D_DLT645_Table[i].stDLT64507Resolve[j].u32Ident,4);
+						pu8ConvertMethodList[(*pu8IdentNum)] = gc_stQCSGAFN0C_0D_DLT645_Table[i].stDLT64507Resolve[j].u8TakeMethod;
+						pu8LenList[(*pu8IdentNum)] = gc_stQCSGAFN0C_0D_DLT645_Table[i].stDLT64507Resolve[j].u8BlDataLen;
+						(*pu8IdentNum)++;
+					}
+					else
+					{
+						break;
+					}
+				}
+				break;
+			}
+		}
+	}
+	if((*pu8IdentNum) > 0)
+	{
+		return TRUE;
+	}
+	return FALSE;
+}
+/**--------------------------------------------------------------------
+*功    能:根据645数据标识获取数据长度，主要用于抄表回错误时无效数据的填充,以E1开头的统计数据，在抄表解析中直接处理掉
+*输入参数:u32Ident
+*输出参数:pu8Len
+*返    回:是否提取成功
+--------------------------------------------------------------------**/
+u8 QCSG_GetDlt645DataLen_By_Ident(u8 u8AFn,u32 u32Ident,u8* pu8Len)
+{
+	(*pu8Len) = 0;
+	if(u8AFn == 0x0D)
+	{
+		if(((u32Ident & 0xFFFF0000) == 0x05060000) && ((u32Ident & 0x000000FF) != 0x000000FF))
+		{
+			//日冻结单条数据
+			(*pu8Len) = 4;			
+		}
+		if(((u32Ident & 0xFFFF0000) == 0x05060000) && ((u32Ident & 0x000000FF) == 0x000000FF))
+		{
+			//日冻结打包数据
+			(*pu8Len) = 20;			
+		}	
+		if(((u32Ident & 0xFFFFFF00) == 0x05060900) && ((u32Ident & 0x000000FF) != 0x000000FF))
+		{
+			//日冻结正向有功最大需量单条数据
+			(*pu8Len) = 8;			
+		}
+		if(((u32Ident & 0xFFFFFF00) == 0x05060900) && ((u32Ident & 0x000000FF) == 0x000000FF))
+		{
+			//日冻结正向有功最大需量
+			(*pu8Len) = 40;	
+		}
+		if(((u32Ident & 0xFFFFFF00) == 0x05060A00) && ((u32Ident & 0x000000FF) != 0x000000FF))
+		{
+			//日冻结反向有功最大需量单条数据
+			(*pu8Len) = 8;			
+		}
+		if(((u32Ident & 0xFFFFFF00) == 0x05060A00) && ((u32Ident & 0x000000FF) == 0x000000FF))
+		{
+			//日冻结反向有功最大需量
+			(*pu8Len) = 40;	
+		}				
+		if(((u32Ident & 0xFF0000FF) == 0x00000001) && ((u32Ident & 0x0000FF00) != 0x0000FF00))
+		{
+			//月冻结单条数据
+			(*pu8Len) = 4;			
+		}
+		if(((u32Ident & 0xFF0000FF) == 0x00000001) && ((u32Ident & 0x0000FF00) == 0x0000FF00))
+		{
+			//月冻结打包条数据
+			(*pu8Len) = 20;			
+		}
+		if(((u32Ident & 0xFF0000FF) == 0) && (u32Ident & 0x0000FF00) != 0x0000FF00)
+		{
+			//电能量单条数据，数据长度为4
+			(*pu8Len) = 4;
+		}
+		if(((u32Ident & 0xFF0000FF) == 0) && (u32Ident & 0x0000FF00) == 0x0000FF00)
+		{
+			//电能量打包数据，数据长度为20
+			(*pu8Len) = 20;
+		}
+		if(((u32Ident & 0xFFFF0000) == 0x02010000) && (u32Ident & 0x0000FF00) != 0x0000FF00)
+		{
+			//电压单条数据，数据长度为2
+			(*pu8Len) = 2;
+		}
+		if(((u32Ident & 0xFFFF0000) == 0x02010000) && (u32Ident & 0x0000FF00) == 0x0000FF00)
+		{
+			//电压打包数据，数据长度为18
+			(*pu8Len) = 2 * 9;
+		}
+		if(((u32Ident & 0xFFFF0000) == 0x02020000) && (u32Ident & 0x0000FF00) != 0x0000FF00)
+		{
+			//电流单条数据，数据长度为3
+			(*pu8Len) = 3;
+		}
+		if(((u32Ident & 0xFFFF0000) == 0x02020000) && (u32Ident & 0x0000FF00) == 0x0000FF00)
+		{
+			//电流打包数据，数据长度为18
+			(*pu8Len) = 3 * 6;
+		}	
+		if((((u32Ident & 0xFFFF0000) == 0x02030000) || ((u32Ident & 0xFFFF0000) == 0x02040000) || ((u32Ident & 0xFFFF0000) == 0x02050000)) && (u32Ident & 0x0000FF00) != 0x0000FF00)
+		{
+			//功率单条数据，数据长度为3
+			(*pu8Len) = 3;
+		}
+		if((((u32Ident & 0xFFFF0000) == 0x02030000) || ((u32Ident & 0xFFFF0000) == 0x02040000) || ((u32Ident & 0xFFFF0000) == 0x02050000)) && (u32Ident & 0x0000FF00) == 0x0000FF00)
+		{
+			//功率打包数据，数据长度为12
+			(*pu8Len) = 3 * 4;
+		}
+		if(((u32Ident & 0xFFFF0000) == 0x02060000) && (u32Ident & 0x0000FF00) != 0x0000FF00)
+		{
+			//功率因数单条数据，数据长度为3
+			(*pu8Len) = 2;
+		}
+		if(((u32Ident & 0xFFFF0000) == 0x02060000) && (u32Ident & 0x0000FF00) == 0x0000FF00)
+		{
+			//功率因数打包数据，数据长度为8
+			(*pu8Len) = 2 * 4;
+		}			
+	}
+	if(u8AFn == 0x0C)
+	{
+		if(((u32Ident & 0xFF0000FF) == 0) && (u32Ident & 0x0000FF00) != 0x0000FF00)
+		{
+			//电能量单条数据，数据长度为4
+			(*pu8Len) = 4;
+		}
+		if(((u32Ident & 0xFF0000FF) == 0) && (u32Ident & 0x0000FF00) == 0x0000FF00)
+		{
+			//电能量打包数据，数据长度为20
+			(*pu8Len) = 20;
+		}
+		if(((u32Ident & 0xFF000000) == 0x01000000) && (u32Ident & 0x0000FF00) != 0x0000FF00)
+		{
+			//需量单条数据，数据长度为8
+			(*pu8Len) = 8;
+		}
+		if(((u32Ident & 0xFF000000) == 0x01000000) && (u32Ident & 0x0000FF00) == 0x0000FF00)
+		{
+			//需量打包数据，数据长度为40
+			(*pu8Len) = 40;
+		}
+		if(((u32Ident & 0xFFFF0000) == 0x02010000) && (u32Ident & 0x0000FF00) != 0x0000FF00)
+		{
+			//电压单条数据，数据长度为2
+			(*pu8Len) = 2;
+		}
+		if(((u32Ident & 0xFFFF0000) == 0x02010000) && (u32Ident & 0x0000FF00) == 0x0000FF00)
+		{
+			//电压打包数据，数据长度为18
+			(*pu8Len) = 2 * 9;
+		}
+		if(((u32Ident & 0xFFFF0000) == 0x02020000) && (u32Ident & 0x0000FF00) != 0x0000FF00)
+		{
+			//电流单条数据，数据长度为3
+			(*pu8Len) = 3;
+		}
+		if(((u32Ident & 0xFFFF0000) == 0x02020000) && (u32Ident & 0x0000FF00) == 0x0000FF00)
+		{
+			//电流打包数据，数据长度为18
+			(*pu8Len) = 3 * 6;
+		}	
+		if((((u32Ident & 0xFFFF0000) == 0x02030000) || ((u32Ident & 0xFFFF0000) == 0x02040000) || ((u32Ident & 0xFFFF0000) == 0x02050000)) && (u32Ident & 0x0000FF00) != 0x0000FF00)
+		{
+			//功率单条数据，数据长度为3
+			(*pu8Len) = 3;
+		}
+		if((((u32Ident & 0xFFFF0000) == 0x02030000) || ((u32Ident & 0xFFFF0000) == 0x02040000) || ((u32Ident & 0xFFFF0000) == 0x02050000)) && (u32Ident & 0x0000FF00) == 0x0000FF00)
+		{
+			//功率打包数据，数据长度为12
+			(*pu8Len) = 3 * 4;
+		}
+		if(((u32Ident & 0xFFFF0000) == 0x02060000) && (u32Ident & 0x0000FF00) != 0x0000FF00)
+		{
+			//功率因数单条数据，数据长度为3
+			(*pu8Len) = 2;
+		}
+		if(((u32Ident & 0xFFFF0000) == 0x02060000) && (u32Ident & 0x0000FF00) == 0x0000FF00)
+		{
+			//功率因数打包数据，数据长度为8
+			(*pu8Len) = 2 * 4;
+		}	
+		if(((u32Ident & 0xFFFF0000) == 0x02070000) && (u32Ident & 0x0000FF00) != 0x0000FF00)
+		{
+			//相角单条数据，数据长度为2
+			(*pu8Len) = 2;
+		}
+		if(((u32Ident & 0xFFFF0000) == 0x02070000) && (u32Ident & 0x0000FF00) == 0x0000FF00)
+		{
+			//相角打包数据，数据长度为12
+			(*pu8Len) = 2 * 6;
+		}		
+		if((((u32Ident & 0xFFFF0000) == 0x02080000) || ((u32Ident & 0xFFFF0000) == 0x02090000)) && (u32Ident & 0x0000FF00) != 0x0000FF00)
+		{
+			//波形失真单条数据，数据长度为2
+			(*pu8Len) = 2;
+		}
+		if((((u32Ident & 0xFFFF0000) == 0x02080000) || ((u32Ident & 0xFFFF0000) == 0x02090000)) && (u32Ident & 0x0000FF00) == 0x0000FF00)
+		{
+			//波形失真打包数据，数据长度为6
+			(*pu8Len) = 2 * 3;
+		}
+		if((((u32Ident & 0xFFFF0000) == 0x020A0000) || ((u32Ident & 0xFFFF0000) == 0x020B0000)) && (u32Ident & 0x000000FF) != 0x000000FF)
+		{
+			//谐波单条数据，数据长度为2
+			(*pu8Len) = 2;
+		}
+		if((((u32Ident & 0xFFFF0000) == 0x020A0000) || ((u32Ident & 0xFFFF0000) == 0x020B0000)) && (u32Ident & 0x000000FF) == 0x000000FF)
+		{
+			//谐波打包数据，数据长度为32
+			(*pu8Len) = 2 * 21;
+		}
+		if(((u32Ident & 0xFFFFFF00) == 0x04000500) && (u32Ident & 0x000000FF) != 0x000000FF)
+		{
+			//电表运行状态字，数据长度为2
+			(*pu8Len) = 2;
+		}
+		if(((u32Ident & 0xFFFFFF00) == 0x04000500) && (u32Ident & 0x000000FF) == 0x000000FF)
+		{
+			//电表运行状态字，数据长度为14
+			(*pu8Len) = 2 * 7;
+		}	
+		switch(u32Ident)
+		{
+			//无规律的数据项
+			case 0x02800001:
+			case 0x02800003:
+			case 0x02800004:	
+			case 0x02800005:	
+			case 0x02800006:	
+			case 0x02800107:
+			case 0x02800108:
+			case 0x02800109:
+			case 0x0280010B:
+			case 0x0280010C:
+			case 0x0280010D:
+			case 0x03300000:
+			case 0x03300100:
+			case 0x03300200:	
+				(*pu8Len) = 3;
+				break;	
+			case 0x02800002:
+			case 0x02800007:
+			case 0x02800008:	
+			case 0x02800009:	
+			case 0x02800101:
+			case 0x02800102:
+			case 0x02800103:
+			case 0x02800104:
+			case 0x02800105:
+			case 0x02800106:
+			case 0x0280010A:
+			case 0x0280010E:
+				(*pu8Len) = 2;
+				break;	
+			case 0x0280000A:
+			case 0x04000101:
+			case 0x04000102:
+				(*pu8Len) = 4;
+				break;
+			case 0x028001FF:
+				(*pu8Len) = 32;
+				break;
+			case 0x03010000:
+			case 0x030B0000:
+			case 0x030E0000:				
+				(*pu8Len) = 18;
+				break;
+			case 0x03100000:
+			case 0x03100100:
+			case 0x03100200:
+			case 0x03100300:				
+				(*pu8Len) = 27;
+				break;					
+		}
+	}
+	if((*pu8Len) != 0)
+	{
+		return TRUE;
+	}
+	else
+	{
+		return FALSE;
+	}		
+}
+/**--------------------------------------------------------------------
+*功    能:协议端口到硬件端口的转换函数
+*输入参数:u8ChNo
+*输出参数:无
+*返    回:是否连接
+--------------------------------------------------------------------**/
+u8 QCSG_PortToHwPort(u8 u8ProtocolPort,u8* pu8HwPort)
+{
+	u8 u8Res = TRUE;
+	switch(u8ProtocolPort)
+	{
+		case 0:
+			(*pu8HwPort) = RS485_1PORT;
+			break;
+		case 1:
+			(*pu8HwPort) = RS485_2PORT;
+			break;
+		case 2:
+			(*pu8HwPort) = RS485_3PORT;
+			break;
+		default:
+			u8Res = FALSE;
+			break;
+	}
+	return u8Res;
+}
+/**--------------------------------------------------------------------
+*功    能:写终端状态字,写的位置按照上行协议位置来的
+*输入参数:u8YXState,u8YKState
+*输出参数:无
+*返    回:无
+--------------------------------------------------------------------**/
+void QCSG_WriteTerminal_State(u8 u8YXState,u8 u8YKState)
+{
+	u8* pState = (u8*)QCSG_TERMINAL_STATE;
+	pState[0] = 0x79;
+	pState[1] = 0x00;
+	//本体门接点
+	if((u8YXState & 0x10) == 0)
+	{
+		pState[0] &= 0x78;
+	}
+	//四路YX
+	if((u8YXState & 0x01) != 0)
+	{
+		pState[0] &= 0x77;
+	}
+	if((u8YXState & 0x02) != 0)
+	{
+		pState[0] &= 0x6F;
+	}
+	if((u8YXState & 0x04) != 0)
+	{
+		pState[0] &= 0x5F;
+	}
+	if((u8YXState & 0x08) != 0)
+	{
+		pState[0] &= 0x3F;
+	}
+	//四路YK
+	u8YKState = (~u8YKState);
+	u8YKState &= 0x0F;
+	u8YKState <<= 3;
+	pState[1] |= u8YKState;
+}
+/**--------------------------------------------------------------------
+*功    能:获取终端状态字
+*输入参数:无
+*输出参数:pu8YXState,pu8YKState
+*返    回:无
+--------------------------------------------------------------------**/
+void QCSG_ReadTerminal_State(u8* pu8YXState,u8* pu8YKState)
+{
+	u8* pState = (u8*)QCSG_TERMINAL_STATE;
+	(*pu8YXState) = pState[0];
+	(*pu8YKState) = pState[1];
+}
+u32 GetRealTimeAMRReqAddr(u32 PORTn)
+{
+	u32 RT_AMRAddr = 0;
+	switch((u8)PORTn)
+	{
+		case RS232PORT:
+			RT_AMRAddr = QCSG_RT_RDMETER_REQ;
+			break;		
+		case GPRSPORT:
+			RT_AMRAddr = QCSG_RT_RDMETER_REQ;
+			break;		
+		case RS485_1PORT:
+			RT_AMRAddr = QCSG_RT_RDMETER_REQ;
+			break;
+		case RS485_2PORT:
+			RT_AMRAddr = QCSG_RT_RDMETER_REQ;
+			break;
+		case RS485_3PORT:
+			RT_AMRAddr = QCSG_RT_RDMETER_REQ;
+			break;		
+		case PLC_PORT:
+			RT_AMRAddr = 0;
+			break;
+		case IRPORT:
+			RT_AMRAddr = QCSG_RT_RDMETER_REQ;
+			break;
+		case ENETPORT:
+			RT_AMRAddr = QCSG_RT_RDMETER_REQ;
+			break;
+		case GUI_PORT:
+			RT_AMRAddr = 0;
+			break;
+		default:
+			RT_AMRAddr = QCSG_RT_RDMETER_REQ;
+			break;
+	}
+
+	return RT_AMRAddr;
+}
+/**--------------------------------------------------------------------
+*功    能:清除当日、当月内存中的统计数据
+*输入参数:无
+*输出参数:pu8YXState,pu8YKState
+*返    回:无
+--------------------------------------------------------------------**/
+void QCSG_ClearStatisticsData(void)
+{
+	memset((u8*)QCSG_VOLTAGE_PASSRATE_DAY,0,1024);
+	memset((u8*)QCSG_A_VOLTAGE_PASSRATE_DAY,0,1024);
+	memset((u8*)QCSG_B_VOLTAGE_PASSRATE_DAY,0,1024);
+	memset((u8*)QCSG_C_VOLTAGE_PASSRATE_DAY,0,1024);
+	memset((u8*)QCSG_CURRENT_EXTREME_DAY,0,1024);
+	memset((u8*)QCSG_N_CURRENT_EXTREME_DAY,0,512);
+	memset((u8*)QCSG_ACTIVE_POWER_DAY,0,512);
+	memset((u8*)QCSG_REACTIVE_POWER_DAY,0,512);
+	memset((u8*)QCSG_POWER_FACTOR_DAY,0,512);
+	memset((u8*)QCSG_POWER_FACTOR_ZONE_DAY,0,1024);
+	memset((u8*)QCSG_POWER_FACTOR_ZONE_A_DAY,0,1024);
+	memset((u8*)QCSG_POWER_FACTOR_ZONE_B_DAY,0,1024);
+	memset((u8*)QCSG_POWER_FACTOR_ZONE_C_DAY,0,1024);
+	memset((u8*)QCSG_POWER_DOWN_NUM_DAY,0,4);
+	memset((u8*)QCSG_POWER_DOWN_TIME_DAY,0,4);
+	
+	memset((u8*)QCSG_VOLTAGE_PASSRATE_MONTH,0,1024);
+	memset((u8*)QCSG_A_VOLTAGE_PASSRATE_MONTH,0,1024);
+	memset((u8*)QCSG_B_VOLTAGE_PASSRATE_MONTH,0,1024);
+	memset((u8*)QCSG_C_VOLTAGE_PASSRATE_MONTH,0,1024);
+	memset((u8*)QCSG_CURRENT_EXTREME_MONTH,0,1024);
+	memset((u8*)QCSG_N_CURRENT_EXTREME_MONTH,0,512);
+	memset((u8*)QCSG_ACTIVE_POWER_MONTH,0,512);
+	memset((u8*)QCSG_REACTIVE_POWER_MONTH,0,512);
+	memset((u8*)QCSG_POWER_FACTOR_MONTH,0,512);
+	memset((u8*)QCSG_POWER_FACTOR_ZONE_MONTH,0,1024);
+	memset((u8*)QCSG_POWER_FACTOR_ZONE_A_MONTH,0,1024);
+	memset((u8*)QCSG_POWER_FACTOR_ZONE_B_MONTH,0,1024);
+	memset((u8*)QCSG_POWER_FACTOR_ZONE_C_MONTH,0,1024);
+	memset((u8*)QCSG_POWER_DOWN_NUM_MONTH,0,4);
+	memset((u8*)QCSG_POWER_DOWN_TIME_MONTH,0,4);
+
+	//清除日冻结、月冻结记录全局变量
+	memset((u8*)QCSG_RECORD_FROZEN_PN_LIST,0,256);
+}
+
+/*******************************************************************************************************
+以下函数为赵云增加
+******************************************************************************************?************/
+
+AMR_ENUM GetAMREnumByDI(u32 DI)
+{
+	AMR_ENUM AmrEnum = AMR_UNKNOWN;
+	
+	
+	if(DI <= 0x01460001)
+	{
+		if((DI & 0x00000001) != 0)
+
+		{
+			AmrEnum = AMR_MonthFreeze;
+		}
+		else
+		{
+			AmrEnum = AMR_CurveFreeze;
+		}	
+	}
+	else if((DI >= 0x02010100) && (DI <= 0x028001FF))
+	{
+		AmrEnum = AMR_CurveFreeze;	
+	}
+	else if((DI >= 0x05060000) && (DI <= 0x05060CFF))
+	{
+		AmrEnum = AMR_DailyFreeze;
+	}
+	else if((DI >= 0xE1008010) && (DI <= 0xE1009C20))
+	{
+		AmrEnum = AMR_DailyStatisticFreeze;
+	}
+	else if((DI >= 0xE100C010) && (DI <= 0xE100DBFF))
+	{
+		AmrEnum = AMR_MonthStatisticFreeze;
+	}
+	else if((DI >= 0xE0000301) && (DI <= 0xE00003FE))
+	{
+		AmrEnum = AMR_NormalTask;
+	}
+	else if((DI >= 0xE0000401) && (DI <= 0xE00004FE))
+	{
+		AmrEnum = AMR_RelayTask;
+	}
+	else
+	{
+		AmrEnum = AMR_UNKNOWN;
+	}
+	
+	return AmrEnum;
+}
+
+
+ResultEnum CheckDataDensity(AMR_ENUM AmrEnum, u32 DataDensity, u32 SampleUnit, u32 SamplePeriod)
+{
+	ResultEnum Result = NO_ERROR;
+	u32 DataDensityTime = 0, SamplePeriodTime = 0;
+	if(DataDensity == 0) return Result;
+
+	switch((u8)DataDensity)
+	{
+		case QCSG_DATA_DENSITY_1_MINUTE:
+			DataDensityTime = 1;
+			break;
+		case QCSG_DATA_DENSITY_5_MINUTE:
+			DataDensityTime = 5;
+			break;
+		case QCSG_DATA_DENSITY_15_MINUTE:
+			DataDensityTime = 15;
+			break;
+		case QCSG_DATA_DENSITY_30_MINUTE:
+			DataDensityTime = 30;
+			break;
+		case QCSG_DATA_DENSITY_1_HOUR:
+			DataDensityTime = 60;
+			break;
+		case QCSG_DATA_DENSITY_1_DAY:
+			DataDensityTime = 24*60;
+			break;
+		case QCSG_DATA_DENSITY_1_MONTH:
+			DataDensityTime = 31*24*60;
+			break;
+		default:
+			DataDensityTime = 0;
+			break;
+	}
+
+	switch((u8)SampleUnit)
+	{
+		case QCSG_SAMPLE_UNIT_MINUTE:
+			SamplePeriodTime = SamplePeriod;
+			break;
+		case QCSG_SAMPLE_UNIT_HOUR:
+			SamplePeriodTime = SamplePeriod * 60;
+			break;
+		case QCSG_SAMPLE_UNIT_DAY:
+			SamplePeriodTime = SamplePeriod * 24 * 60;
+			break;
+		case QCSG_SAMPLE_UNIT_MONTH:
+			SamplePeriodTime = SamplePeriod * 31 * 24 * 60;
+			break;
+		default:
+			SamplePeriodTime = 0xFFFFFFFF;
+			break;
+	}
+	
+	switch(AmrEnum)
+	{
+		case AMR_DailyFreeze:		
+		case AMR_DailyStatisticFreeze:
+			if(DataDensity  != QCSG_DATA_DENSITY_1_DAY)
+			{
+				Result = ERROR_WRONG_ACCESS;
+			}
+			break;
+		case AMR_MonthFreeze:
+		case AMR_MonthStatisticFreeze:
+			if(DataDensity != QCSG_DATA_DENSITY_1_MONTH)
+			{
+				Result = ERROR_WRONG_ACCESS;
+			}
+			break;
+		case AMR_CurveFreeze:
+			if((DataDensity > QCSG_DATA_DENSITY_1_HOUR) || (DataDensity < QCSG_DATA_DENSITY_5_MINUTE))
+			{
+				Result = ERROR_WRONG_ACCESS;
+			}
+			break;
+		case AMR_NormalTask:
+		case AMR_RelayTask:
+			if(DataDensityTime < SamplePeriodTime) 
+			{
+				Result = ERROR_WRONG_ACCESS;
+			}
+			break;
+		case AMR_UNKNOWN:
+		default:
+			Result = ERROR_WRONG_ACCESS;
+			break;
+	}
+	return Result;
+}
+
+u8 GetDefaultDataDensityByAMREnum(AMR_ENUM AmrEnum)
+{
+	u8 DataDensity = 0;
+	switch(AmrEnum)
+	{
+		case AMR_DailyFreeze:		
+		case AMR_DailyStatisticFreeze:
+			DataDensity = QCSG_DATA_DENSITY_1_DAY;
+			break;
+		case AMR_MonthFreeze:
+		case AMR_MonthStatisticFreeze:
+			DataDensity = QCSG_DATA_DENSITY_1_MONTH;
+			break;
+		case AMR_CurveFreeze:
+			#if ((Project/100)==2)
+				DataDensity = QCSG_DATA_DENSITY_1_HOUR;
+			#endif
+			#if ((Project/100)==3)
+				DataDensity = QCSG_DATA_DENSITY_15_MINUTE;
+			#endif
+			#if ((Project/100)==5)
+				DataDensity = QCSG_DATA_DENSITY_1_HOUR;
+			#endif
+			break;
+		case AMR_NormalTask:		
+		case AMR_RelayTask:
+			DataDensity = QCSG_DATA_DENSITY_1_DAY;
+			break;
+		case AMR_UNKNOWN:
+		default:
+			DataDensity = QCSG_DATA_DENSITY_1_DAY;
+			break;
+	}
+	return DataDensity;
+}
+
+/****************************************************************************
+功     能: 根据输入的数据时间密度取值，增加相应的时间
+入口参 数: Time,需要增加的时间，
+		   DataDensity，数据密度，当数据密度不合法默认为6，按天增加
+返     回: 
+编     写: zhaoyun
+编写时 间; 2017-7-10
+****************************************************************************/
+ResultEnum AddTimeByDataDensity(RealTimeYYStruct* Time, u32 DataDensity)
+{
+	ResultEnum Result = NO_ERROR;
+	RealTimeStruct RealTime;
+	u32 i = 0;
+	if((DataDensity == QCSG_DATA_DENSITY_DEFAULT) || (DataDensity > QCSG_DATA_DENSITY_1_MONTH))
+	{
+		DataDensity = QCSG_DATA_DENSITY_1_DAY;
+	}
+	YYTimeToRealTime(Time, &RealTime);
+	switch ((u8)DataDensity)
+	{
+		case QCSG_DATA_DENSITY_1_MINUTE:
+			QCSG_IncOneMinute(&RealTime);
+			break;
+		case QCSG_DATA_DENSITY_5_MINUTE:
+			for(i = 0; i < 5; i++)
+			{
+				QCSG_IncOneMinute(&RealTime);
+			}
+			break;
+		case QCSG_DATA_DENSITY_15_MINUTE:
+			for(i = 0; i < 15; i++)
+			{
+				QCSG_IncOneMinute(&RealTime);
+			}
+			break;
+		case QCSG_DATA_DENSITY_30_MINUTE:
+			for(i = 0; i < 30; i++)
+			{
+				QCSG_IncOneMinute(&RealTime);
+			}
+			break;
+		case QCSG_DATA_DENSITY_1_HOUR:
+			QCSG_IncOneHour(&RealTime);
+			break;
+		case QCSG_DATA_DENSITY_1_DAY:
+			QCSG_IncOneDay(&RealTime);
+			break;
+		case QCSG_DATA_DENSITY_1_MONTH:
+			QCSG_IncOneMonth(&RealTime);
+			break;
+		default:
+			Result = ERROR_InvalidData;
+			break;
+		
+	}
+	RealTimeToYYTime(&RealTime, Time);
+	return Result;
+}
+
+
+ResultEnum DecTimeByDataDensity(RealTimeYYStruct* Time, u32 DataDensity)
+{
+	ResultEnum Result = NO_ERROR;
+	RealTimeStruct RealTime;
+	u32 i = 0;
+	if((DataDensity == QCSG_DATA_DENSITY_DEFAULT) || (DataDensity > QCSG_DATA_DENSITY_1_MONTH))
+	{
+		DataDensity = QCSG_DATA_DENSITY_1_DAY;
+	}
+	YYTimeToRealTime(Time, &RealTime);
+	switch ((u8)DataDensity)
+	{
+		case QCSG_DATA_DENSITY_1_MINUTE:
+			QCSG_DecOneMinute(&RealTime);
+			break;
+		case QCSG_DATA_DENSITY_5_MINUTE:
+			for(i = 0; i < 5; i++)
+			{
+				QCSG_DecOneMinute(&RealTime);
+			}
+			break;
+		case QCSG_DATA_DENSITY_15_MINUTE:
+			for(i = 0; i < 15; i++)
+			{
+				QCSG_DecOneMinute(&RealTime);
+			}
+			break;
+		case QCSG_DATA_DENSITY_30_MINUTE:
+			for(i = 0; i < 30; i++)
+			{
+				QCSG_DecOneMinute(&RealTime);
+			}
+			break;
+		case QCSG_DATA_DENSITY_1_HOUR:
+			QCSG_DecOneHour(&RealTime);
+			break;
+		case QCSG_DATA_DENSITY_1_DAY:
+			QCSG_DecOneDay(&RealTime);
+			break;
+		case QCSG_DATA_DENSITY_1_MONTH:
+			QCSG_DecOneMonth(&RealTime);
+			break;
+		default:
+			Result = ERROR_InvalidData;
+			break;
+		
+	}
+	RealTimeToYYTime(&RealTime, Time);
+	return Result;
+}
+
+ResultEnum ConvertTimeToDataDensityTime(RealTimeYYStruct* Time, u32 DataDensity)
+{
+	ResultEnum Result = NO_ERROR;
+	RealTimeStruct RealTime;
+	if((DataDensity == QCSG_DATA_DENSITY_DEFAULT) || (DataDensity > QCSG_DATA_DENSITY_1_MONTH))
+	{
+		DataDensity = QCSG_DATA_DENSITY_1_DAY;
+	}
+	YYTimeToRealTime(Time, &RealTime);
+	switch ((u8)DataDensity)
+	{
+		case QCSG_DATA_DENSITY_1_MINUTE:
+			break;
+		case QCSG_DATA_DENSITY_5_MINUTE:
+			if(RealTime.u8Minute == 0x00)
+			{
+				RealTime.u8Minute = 0x00;
+			}
+			else if(RealTime.u8Minute <= 0x05)
+			{
+				RealTime.u8Minute = 0x05;
+			}
+			else if(RealTime.u8Minute <= 0x10)
+			{
+				RealTime.u8Minute = 0x10;
+			}
+			else if(RealTime.u8Minute <= 0x15)
+			{
+				RealTime.u8Minute = 0x15;
+			}
+			else if(RealTime.u8Minute <= 0x20)
+			{
+				RealTime.u8Minute = 0x20;
+			}
+			else if(RealTime.u8Minute <= 0x25)
+			{
+				RealTime.u8Minute = 0x25;
+			}
+			else if(RealTime.u8Minute <= 0x30)
+			{
+				RealTime.u8Minute = 0x30;
+			}
+			else if(RealTime.u8Minute <= 0x35)
+			{
+				RealTime.u8Minute = 0x35;
+			}
+			else if(RealTime.u8Minute <= 0x40)
+			{
+				RealTime.u8Minute = 0x40;
+			}
+			else if(RealTime.u8Minute <= 0x45)
+			{
+				RealTime.u8Minute = 0x45;
+			}
+			else if(RealTime.u8Minute <= 0x50)
+			{
+				RealTime.u8Minute = 0x50;
+			}
+			else if(RealTime.u8Minute <= 0x55)
+			{
+				RealTime.u8Minute = 0x55;
+			}
+			else
+			{
+				RealTime.u8Minute = 0x00;
+				QCSG_IncOneHour(&RealTime);
+			}
+			break;
+		case QCSG_DATA_DENSITY_15_MINUTE:
+			if(RealTime.u8Minute == 0x00)
+			{
+				RealTime.u8Minute = 0x00;
+			}
+			else if(RealTime.u8Minute <= 0x15)
+			{
+				RealTime.u8Minute = 0x15;
+			}
+			else if(RealTime.u8Minute <= 0x30)
+			{
+				RealTime.u8Minute = 0x30;
+			}
+			else if(RealTime.u8Minute <= 0x45)
+			{
+				RealTime.u8Minute = 0x45;
+			}
+			else
+			{
+				RealTime.u8Minute = 0x00;
+				QCSG_IncOneHour(&RealTime);
+			}
+			break;
+		case QCSG_DATA_DENSITY_30_MINUTE:
+			if(RealTime.u8Minute == 0x00)
+			{
+				RealTime.u8Minute = 0x00;
+			}
+			else if(RealTime.u8Minute <= 0x30)
+			{
+				RealTime.u8Minute = 0x30;
+			}
+			else
+			{
+				RealTime.u8Minute = 0x00;
+				QCSG_IncOneHour(&RealTime);
+			}	
+			break;
+		case QCSG_DATA_DENSITY_1_HOUR:
+			if(RealTime.u8Minute != 0x00)
+			{
+				QCSG_IncOneHour(&RealTime);
+				RealTime.u8Minute = 0x00;
+			}
+			break;
+		case QCSG_DATA_DENSITY_1_DAY:		
+			if((RealTime.u8Hour != 0x00) || (RealTime.u8Minute != 0x00))
+			{
+				QCSG_IncOneDay(&RealTime);
+				RealTime.u8Hour = 0x00;
+				RealTime.u8Minute = 0x00;
+			}	
+			break;
+		case QCSG_DATA_DENSITY_1_MONTH:	
+			if((RealTime.u8Day != 0x01) || (RealTime.u8Hour != 0x00) || (RealTime.u8Minute != 0x00))
+			{
+				QCSG_IncOneMonth(&RealTime);
+				RealTime.u8Day = 0x01;
+				RealTime.u8Hour = 0x00;
+				RealTime.u8Minute = 0x00;
+			}	
+			break;
+		default:
+			Result = ERROR_InvalidData;
+			break;
+		
+	}
+	RealTimeToYYTime(&RealTime, Time);
+	return Result;
+}
+/****************************************************************************
+功     能: 根据输入的数据时间比较两个时间的大小
+入口参 数: AmrEnum，不同的抄表类型，比较的时间范围不一致
+		   Time1,Time2: 比较Time1比Time2小、大或者相等
+返     回: 
+编     写: zhaoyun
+编写时 间; 2017-7-10
+****************************************************************************/
+ResultEnum TimeCompare(AMR_ENUM AmrEnum, RealTimeYYStruct* Time1, RealTimeYYStruct* Time2)
+{
+	ResultEnum Result = ERROR_TIME_IS_EQUAL;
+	u32 i = 0, CompareNum = 0;
+	u8* SrcTime = (u8*)Time1;
+	u8* DstTime = (u8*)Time2;
+	switch(AmrEnum)
+    {
+        case AMR_DailyFreeze:
+        case AMR_DailyStatisticFreeze:
+			CompareNum = 4;
+			break;
+        case AMR_CurveFreeze:
+			CompareNum = 6;
+            break;
+        case AMR_MonthFreeze:
+        case AMR_MonthStatisticFreeze:
+			CompareNum = 3;
+             break;
+        case AMR_NormalTask:
+        case AMR_RelayTask:
+		case AMR_ALARM:
+		case AMR_EVENT:
+			CompareNum = 6;
+		break;
+	default:
+		CompareNum = 6;
+		break;
+    }
+	for(i = 0; i < CompareNum; i++)
+    {
+        if(SrcTime[i]>DstTime[i])
+        {
+            Result = ERROR_TIME_IS_BIGGER;
+            break;
+        }
+        else if(SrcTime[i]<DstTime[i])
+        {
+            Result = ERROR_TIME_IS_SMALLER;
+            break;
+        }
+        else
+        {
+            Result = ERROR_TIME_IS_EQUAL;
+        }
+    }	 
+	return Result;
+}
+
+void RealTimeToYYTime(RealTimeStruct *srcTime,RealTimeYYStruct *dstTime)
+{
+    dstTime->YearH = 0x20;
+    dstTime->YearL = srcTime->u8Year;
+    dstTime->Month = srcTime->u8Month;
+    dstTime->Day = srcTime->u8Day;
+    dstTime->Hour = srcTime->u8Hour;
+    dstTime->Minute = srcTime->u8Minute;
+}
+void YYTimeToRealTime(RealTimeYYStruct *srcTime,RealTimeStruct *dstTime)
+{
+    dstTime->u8Year = srcTime->YearL;
+    dstTime->u8Month = srcTime->Month;
+    dstTime->u8Day = srcTime->Day;
+    dstTime->u8Hour = srcTime->Hour;
+    dstTime->u8Minute = srcTime->Minute;
+    dstTime->u8Second = 0;
+	dstTime->u8Week = 0;
+}
+
+u16 GetMaxPnNum(void)
+{
+	return MAX_PN_NUM;
+}
+
+
+u16 SplitPnToList(u16 Pn, u16* List, u8 PnCheck)
+{
+	u16 i = 0, Num = 0, PnIncEn = 0, TempPn = 0, MaxPn = 0;
+
+	if(List == NULL) return Num;
+	if(((Pn & 0xFF00) == 0) && ((Pn & 0x00FF) != 0)) return Num;
+	if(Pn == 0)
+	{
+		List[Num] = Pn;
+		Num++;
+	}
+	else
+	{
+		if(Pn == QCSG_ALL_PN)
+		{
+			Pn = 0x01FF;
+			PnIncEn = 1;
+		}
+		// 等待完成获取当前最大测量点号，暂用 MAX_PN_NUM 代替
+		MaxPn = SwitchNumToPn(MAX_PN_NUM);
+		
+		for(i = 0; i < 8; i++)
+		{
+			if((Pn & (1 << i)) != 0) 
+			{
+				TempPn = Pn & 0xFF00;
+				TempPn |= (1 << i);
+				if((PnCheck != PN_CHECK_DISABLE) && ((TempPn > MaxPn) || (CheckPnValid(TempPn) != NO_ERROR)))
+				{
+					continue;
+				}
+				List[Num] = TempPn;
+				Num++;
+			}
+			if((i >= 8) && (PnIncEn != 0))
+			{
+				i = 0;
+				Pn += 0x0100;
+				if((Pn & 0xFF00) == 0xFF00) break;
+			}
+		}
+	}
+	
+	return Num;
+}
+
+u16 SetAlarmEventDIDataByDIInfo(u8* DstData, u8* SrcData, const DIDataInfoStruct* DiInfo)
+{
+	u16 i = 0, Len = 0, DescNum = 0;
+
+	for(DescNum = 0; DescNum < DiInfo->DescNum; DescNum++)
+	{
+		//MR((u32)&DstData[Len], (u32)&SrcData[DiInfo->Descriptor[DescNum].OffSet], DiInfo->Descriptor[DescNum].Len);
+		//Len += DiInfo->Descriptor[DescNum].Len;
+		for(i = 0; i < DiInfo->Descriptor[DescNum].Len; i++)
+		{
+			DstData[Len++] = SrcData[DiInfo->Descriptor[DescNum].OffSet + i];
+		}
+	}	
+	return Len;
+}
+
+/****************************************************************************
+功     能: 表号合法性判断
+入口参 数: MeterAddr=表号
+出口参 数: 无
+返     回: 合：法或不合法
+调用注 意: 
+主要算 法:
+编     写: zhaoyun
+编写时 间; 2015-11-10
+****************************************************************************/
+ResultEnum MeterAddrCheck(u8* MeterAddr)
+{
+	u32 i = 0;
+	for(i = 0; i < METER_ADDR_SIZE; i++)
+	{
+		if(((MeterAddr[i] & 0xF0) > 0x90) || ((MeterAddr[i] & 0x0F) > 0x09))
+		{
+			return ERROR_WRONG_ADDR;
+		}
+	}
+	return NO_ERROR;
+}
+
+u32 SwitchPnToNum(u32 Pn)
+{
+	u32 PnNum = 0, i = 0;
+	if(Pn == 0) return PnNum;
+
+	PnNum = ((Pn >> 8) - 1) * 8;
+	for(i = 0; i < 8; i++)
+	{
+		if((Pn & (1 << i)) != 0) break;
+	}
+	PnNum += (i + 1);
+	return PnNum;
+}
+
+
+u32 SwitchNumToPn(u32 PnNum)
+{
+	u32 Pn = 0;
+	if(PnNum == 0) return Pn;
+	if(PnNum <= MAX_PN_NUM)
+	{
+		Pn = ((PnNum- 1) >> 3) + 1;
+		Pn <<= 8;
+		Pn += 1 << ((PnNum - 1) % 8); 
+	}
+	return Pn;
+}
+
+ResultEnum QCSG_CheckPnAddrIsDuplicate(u32 Pn, u8* Addr)
+{
+	MeasurePointStruct MeasurePoint;
+	u32 i = 0, PnNum = 0;
+
+	PnNum = SwitchPnToNum(Pn);
+	for(i = 0; i < MAX_PN_NUM; i++)
+	{
+		if(i == PnNum) continue;
+		NAND_ReadMeasurePointByPnNum(i, &MeasurePoint);
+		if(MemCompare(MeasurePoint.Addr, Addr, METER_ADDR_SIZE) == 0) break;
+	}
+
+	if(i < MAX_PN_NUM) return ERROR_InvalidData;
+
+	return NO_ERROR;
+}
+
+ResultEnum CheckPnValid(u16 Pn)
+{	
+	MeasurePointStruct MeasurePoint;
+	ResultEnum Result = NO_ERROR;
+	u32 DataLen = 0;
+	u16 TempPn = 0;
+
+	if(Pn == 0) return NO_ERROR;
+	
+	TempPn = SwitchNumToPn(MAX_PN_NUM);
+	if(Pn > TempPn) return ERROR_VerifyFail;
+		
+	MC(0, (u32)&MeasurePoint, sizeof(MeasurePointStruct));
+	NAND_ReadMeasurePoint(Pn, 0xE0800000, (u8*)&MeasurePoint, &DataLen);
+
+	//if(MeasurePoint.State == 0) return ERROR_VerifyFail;
+
+	Result = MeterAddrCheck(MeasurePoint.Addr);
+
+	return Result;
+}
+
+u8 CaculateWeek(RealTimeStruct* Time)
+{
+	u8 Week = 0;
+	u16 w = 0, d = 0;
+	u16 YearInDec = 2000 + (Time->u8Year & 0x0F) + (Time->u8Year >> 4) * 10;	
+	u8 MonthInDec = (Time->u8Month & 0x0F) + (Time->u8Month >> 4) * 10;
+	u8 DayInDec = (Time->u8Day & 0x0F) + (Time->u8Day >> 4) * 10;
+		
+	switch(MonthInDec)
+	{
+		case 1:
+			d = DayInDec;
+			break;
+		case 2:
+			d = 31 + DayInDec;
+			break;
+		case 3:
+			d = 31 + 28 + DayInDec;		
+			break;
+		case 4:
+			d = 31 + 28 + 31 + DayInDec;
+			break;
+		case 5:
+			d = 31 + 28 + 31 + 30 + DayInDec;
+			break;
+		case 6:
+			d = 31 + 28 + 31 + 30 + 31 + DayInDec;
+			break;
+		case 7:
+			d = 31 + 28 + 31 + 30 + 31 + 30 + DayInDec;
+			break;
+		case 8:
+			d = 31 + 28 + 31 + 30 + 31 + 30 + 31 + DayInDec;
+			break;
+		case 9:
+			d = 31 + 28 + 31 + 30 + 31 + 30 + 31 + 31 + DayInDec;
+			break;
+		case 10:
+			d = 31 + 28 + 31 + 30 + 31 + 30 + 31 + 31 + 30 + DayInDec;
+			break;
+		case 11:
+			d = 31 + 28 + 31 + 30 + 31 + 30 + 31 + 31 + 30 + 31 + DayInDec;
+			break;
+		case 12:
+			d = 31 + 28 + 31 + 30 + 31 + 30 + 31 + 31 + 30 + 31 + 30 + DayInDec;
+			break;
+		default:
+			break;
+	}
+	if((LeapYearCheck(YearInDec) != 0) && (MonthInDec > 0x02)) d++;
+	w = (YearInDec -1) + ((YearInDec -1) / 4)	-((YearInDec -1) / 100) + ((YearInDec -1) / 400) + d;
+	Week = w % 7;
+	return Week;
+}
+
+u8 LeapYearCheck(u16 sYear)
+{
+	return(((sYear % 4 == 0) && (sYear % 100 != 0)) || (sYear % 400 == 0));
+}
+
+ResultEnum TimeValidCheck(RealTimeStruct* Calendar)
+{
+	// 年月合法性判断
+	if(((Calendar->u8Year & 0x0F) > 0x09) || ((Calendar->u8Year & 0xF0) > 0x90))	//(0x00 - 0x99)
+	{
+		return ERROR_InvalidData;
+	}
+
+	if((Calendar->u8Month == 0x00) || ((Calendar->u8Month & 0x0F) > 0x09) || ((Calendar->u8Month & 0xF0) > 0x10) || (Calendar->u8Month > 0x12))	//(0x01 - 0x12)
+	{
+		return ERROR_InvalidData;
+	}
+
+	// 日合法性判断
+	if((Calendar->u8Day == 0x00) || ((Calendar->u8Day & 0x0F) > 0x09) || ((Calendar->u8Day & 0xF0) > 0x30))		//(0x01 - 0x31)
+	{
+		return ERROR_InvalidData;
+	}
+
+	if((Calendar->u8Month == 0x04) || (Calendar->u8Month == 0x06) || (Calendar->u8Month == 0x09) || (Calendar->u8Month == 0x11))
+	{
+		if(Calendar->u8Day > 0x30) return ERROR_InvalidData;		
+	}
+	else if(Calendar->u8Month == 2)
+	{
+		if(LeapYearCheck(2000 + (Calendar->u8Year & 0x0F) + ((Calendar->u8Year >> 4) * 10)) != 0)			//闰年判断
+		{
+			if(Calendar->u8Day > 0x29) return ERROR_InvalidData;
+		}
+		else
+		{
+			if(Calendar->u8Day > 0x28) return ERROR_InvalidData;
+		}
+	}
+	else
+	{
+		if(Calendar->u8Day > 0x31) return ERROR_InvalidData;	
+	}
+
+	// 小时、分钟、秒合法性判断
+
+	if(((Calendar->u8Hour & 0x0F) > 0x09) || ((Calendar->u8Hour & 0xF0) > 0x20) || (Calendar->u8Hour > 0x23))	//(0x00 - 0x23)
+	{
+		return ERROR_InvalidData;
+	}
+
+	if(((Calendar->u8Minute & 0x0F) > 0x09) || ((Calendar->u8Minute & 0xF0) > 0x50) || (Calendar->u8Minute > 0x59))	//(0x00 - 0x59)
+	{
+		return ERROR_InvalidData;
+	}
+
+	if(((Calendar->u8Second & 0x0F) > 0x09) || ((Calendar->u8Second & 0xF0) > 0x50) || (Calendar->u8Second > 0x59))	//(0x00 - 0x59)
+	{
+		return ERROR_InvalidData;
+	}
+	
+	// 星期合法性判断
+	if(Calendar->u8Week > 0x06) return ERROR_InvalidData;
+
+	return NO_ERROR;
+}
+
+
+
+u16 QCSG_BuildFrameByStruct(QCSGFrameStruct* Frame, u8* Buf)
+{
+	u16 Index = 0, CSStartPos = 0;
+	TerminalRunTimeCtrlStruct* pTSysCtrl = (TerminalRunTimeCtrlStruct*)ADDR_Terminal_RunTime;
+	
+	Buf[Index++] = QCSG_FRAME_HEAD;
+	Buf[Index++] = (u8)(Frame->DataLen + 10);
+	Buf[Index++] = (u8)((Frame->DataLen + 10) >> 8);
+	Buf[Index++] = (u8)(Frame->DataLen + 10);
+	Buf[Index++] = (u8)((Frame->DataLen + 10) >> 8);
+	Buf[Index++] = QCSG_FRAME_HEAD;
+	CSStartPos = Index;
+	if(pTSysCtrl->LatelyAlarmNum != 0)
+	{
+		Buf[Index++] = Frame->FC | QCSG_FC_ACD_BIT;
+	}
+	else
+	{
+		Buf[Index++] = Frame->FC;
+	}
+	//Buf[Index++] = Frame->FC;
+	Buf[Index++] = Frame->A1;
+	Buf[Index++] = Frame->A1 >> 8;
+	Buf[Index++] = Frame->A1 >> 16;
+	Buf[Index++] = Frame->A2;
+	Buf[Index++] = Frame->A2 >> 8;
+	Buf[Index++] = Frame->A2 >> 16;
+	Buf[Index++] = Frame->A3;
+	Buf[Index++] = Frame->AFN;
+	Buf[Index++] = Frame->SEQ;
+	MemCopy(&Buf[Index], Frame->Data, Frame->DataLen);
+	Index += Frame->DataLen;
+	Buf[Index++] = (u8)SumCaculation(&Buf[CSStartPos], Frame->DataLen + 10);
+	Buf[Index++] = QCSG_FRAME_TAIL;
+	return Index;
+}
+
+/****************************************************************************
+功     能: 计算和校验
+入口参 数: *Data,Len
+出口参 数: 无
+返     回: Result
+调用注 意:
+主要算 法:
+编     写: zhaoyun
+编写时 间; 2014-4-10
+****************************************************************************/
+u32 SumCaculation(u8 *Data, u32 Len)
+{
+	u32	Result = 0;
+	u32	i = 0;
+	for(i = 0; i < Len; i ++)
+	{
+		Result += Data[i];
+	}
+	return Result;
+}
+
+void MemCopy(void *dest, const void *source, u16 bytes)
+{
+  	memcpy(dest, source, bytes);
+}
+
+s8 MemCompare(const void *source0, const void *source1, u16 bytes)
+{
+  	return memcmp(source0, source1, bytes);
+}
+
+void MemSet(void *dest, u8 val, u16 bytes)
+{
+  	memset(dest, val, bytes);
+}
+
+ResultEnum DLT645FrameCheck(u8* FrameBuf, u32 FrameLen)
+{
+	u32 DataLen = 0, i = 0;
+	if(FrameLen < MIN_645_FRAME_LEN) return ERROR_WRONG_LENGTH;
+
+	for(i = 0; i < FrameLen; i++)
+	{
+		if((FrameBuf[i] != DLT_645_HEAD) || (FrameBuf[i + 7] != DLT_645_HEAD)) continue;
+		
+		DataLen = FrameBuf[i + 9];
+		if(DataLen > MAX_645_DATA_LEN) continue;
+		if(FrameBuf[i + 11 + DataLen] != DLT_645_TAIL) continue;
+				
+		if((FrameBuf[i + 10 + DataLen] != (u8)SumCaculation(&FrameBuf[i], DataLen + 10))) continue;
+		
+		return NO_ERROR;
+	}
+	
+	return ERROR_WRONG_PROTOCOL;
+}
+
+
+const u16 fcstab[256] =
+{                                                     //CRC交验
+	0x0000, 0x1189, 0x2312, 0x329b, 0x4624, 0x57ad, 0x6536, 0x74bf,
+	0x8c48, 0x9dc1, 0xaf5a, 0xbed3, 0xca6c, 0xdbe5, 0xe97e, 0xf8f7,
+	0x1081, 0x0108, 0x3393, 0x221a, 0x56a5, 0x472c, 0x75b7, 0x643e,
+	0x9cc9, 0x8d40, 0xbfdb, 0xae52, 0xdaed, 0xcb64, 0xf9ff, 0xe876,
+	0x2102, 0x308b, 0x0210, 0x1399, 0x6726, 0x76af, 0x4434, 0x55bd,
+	0xad4a, 0xbcc3, 0x8e58, 0x9fd1, 0xeb6e, 0xfae7, 0xc87c, 0xd9f5,
+	0x3183, 0x200a, 0x1291, 0x0318, 0x77a7, 0x662e, 0x54b5, 0x453c,
+	0xbdcb, 0xac42, 0x9ed9, 0x8f50, 0xfbef, 0xea66, 0xd8fd, 0xc974,
+	0x4204, 0x538d, 0x6116, 0x709f, 0x0420, 0x15a9, 0x2732, 0x36bb,
+	0xce4c, 0xdfc5, 0xed5e, 0xfcd7, 0x8868, 0x99e1, 0xab7a, 0xbaf3,
+	0x5285, 0x430c, 0x7197, 0x601e, 0x14a1, 0x0528, 0x37b3, 0x263a,
+	0xdecd, 0xcf44, 0xfddf, 0xec56, 0x98e9, 0x8960, 0xbbfb, 0xaa72,
+	0x6306, 0x728f, 0x4014, 0x519d, 0x2522, 0x34ab, 0x0630, 0x17b9,
+	0xef4e, 0xfec7, 0xcc5c, 0xddd5, 0xa96a, 0xb8e3, 0x8a78, 0x9bf1,
+	0x7387, 0x620e, 0x5095, 0x411c, 0x35a3, 0x242a, 0x16b1, 0x0738,
+	0xffcf, 0xee46, 0xdcdd, 0xcd54, 0xb9eb, 0xa862, 0x9af9, 0x8b70,
+	0x8408, 0x9581, 0xa71a, 0xb693, 0xc22c, 0xd3a5, 0xe13e, 0xf0b7,
+	0x0840, 0x19c9, 0x2b52, 0x3adb, 0x4e64, 0x5fed, 0x6d76, 0x7cff,
+	0x9489, 0x8500, 0xb79b, 0xa612, 0xd2ad, 0xc324, 0xf1bf, 0xe036,
+	0x18c1, 0x0948, 0x3bd3, 0x2a5a, 0x5ee5, 0x4f6c, 0x7df7, 0x6c7e,
+	0xa50a, 0xb483, 0x8618, 0x9791, 0xe32e, 0xf2a7, 0xc03c, 0xd1b5,
+	0x2942, 0x38cb, 0x0a50, 0x1bd9, 0x6f66, 0x7eef, 0x4c74, 0x5dfd,
+	0xb58b, 0xa402, 0x9699, 0x8710, 0xf3af, 0xe226, 0xd0bd, 0xc134,
+	0x39c3, 0x284a, 0x1ad1, 0x0b58, 0x7fe7, 0x6e6e, 0x5cf5, 0x4d7c,
+	0xc60c, 0xd785, 0xe51e, 0xf497, 0x8028, 0x91a1, 0xa33a, 0xb2b3,
+	0x4a44, 0x5bcd, 0x6956, 0x78df, 0x0c60, 0x1de9, 0x2f72, 0x3efb,
+	0xd68d, 0xc704, 0xf59f, 0xe416, 0x90a9, 0x8120, 0xb3bb, 0xa232,
+	0x5ac5, 0x4b4c, 0x79d7, 0x685e, 0x1ce1, 0x0d68, 0x3ff3, 0x2e7a,
+	0xe70e, 0xf687, 0xc41c, 0xd595, 0xa12a, 0xb0a3, 0x8238, 0x93b1,
+	0x6b46, 0x7acf, 0x4854, 0x59dd, 0x2d62, 0x3ceb, 0x0e70, 0x1ff9,
+	0xf78f, 0xe606, 0xd49d, 0xc514, 0xb1ab, 0xa022, 0x92b9, 0x8330,
+	0x7bc7, 0x6a4e, 0x58d5, 0x495c, 0x3de3, 0x2c6a, 0x1ef1, 0x0f78
+};
+
+//G(X) = 1 + X5 + X12 + X16, CCIT-16
+//#define CRC_POLY 			(0xF0B8)
+#define CRC_POLY 			(0x1021)
+#define GOOD_CRC			(0x0F47)
+
+u16 CCIT16_CRC(u8 *ptr, u32 len)    
+{ 
+	u16 crc = 0xFFFF;  
+	u8 i;  
+	while(len--) 
+	{ 
+		crc ^= *ptr++;  
+		for(i = 0; i < 8; i++)  
+		{ 
+			if(crc & 0x0001) 
+			{ 
+				crc >>= 1; 
+				crc ^= CRC_POLY;   
+			} 
+			else   
+			{ 
+				crc >>= 1; 
+			}  
+		} 
+	}   
+	crc ^= 0xFFFF;  
+	return crc; 
+} 
+
+/*
+u16 CCIT16_CRC(u8* ptr, u32 len)
+{
+	u16 crc = 0xffff;
+	while(len--)
+	{
+		crc = (crc>>8) ^ fcstab[(crc ^ *(ptr++)) & 0xFF];
+	}
+	crc ^= 0xffff;
+	return crc;
+}
+*/
+ResultEnum BCD_Check(u8* BCD, u32 Len)
+{
+	u32 i = 0;
+	for(i = 0; i < Len; i++)
+	{
+		if(((BCD[i] & 0x0F) > 0x09) || ((BCD[i] & 0xF0) > 0x90))
+		{
+			return ERROR_VerifyFail;
+		}
+	}
+	return NO_ERROR;
+}
+
+/****************************************************************************
+功     能: 根据输入的串口控制参数得到串口初始化控制字
+入口参 数: BaudRateCode: 根据波特率数组，按照下标获取，注意输入参数是南网标准baudrate/300
+		   需要先根据南网的取值获得实际波特率，然后转换成王总格式对应的控制字。
+		   0=300,1=600,2=1200,3=2400,4=4800,5=7200,6=9600,7=19200,8=38400,9=57600,
+		   10=115200,11=230400
+		   ParityCode: 0：无校验；1：偶校验；2：奇校验 
+		   DataBitCode: 数据位，5,6,7,8
+		   StopBitCode: 停止位，0：1位；1：1.5位； 2：2位
+返     回: 转换出的王总串口初始化控制字
+		   D8-D5位表示波特率,O～11依次表示0=300,1=600,2=1200,3=2400,4=4800,
+		   5=7200,6=9600,7=19200,8=38400,9=57600,10=115200,11=230400
+		   D4位表示停止位位数0/1分别表示1/2个停止位
+		   D3位表示有无校验位0/1分别表示无/有
+		   D2位表示偶／奇校验位0/1分别表示偶／奇校验
+		   D1-D0 数据位数0～3分别表示5-8位
+编     写: zhaoyun
+编写时 间; 2017-7-10
+****************************************************************************/
+u16 ConvertToBpsCtrl(u8 BaudRateCode, u8 ParityCode, u8 DataBitCode, u8 StopBitCode)
+{
+	u16 i = 0;
+	u16 BspCtrl = 0;
+	u32 BaudRate = 0; 
+	BaudRate = BaudRateCode;
+	BaudRate *= 300;
+	for(i = 0; i < MAX_BAUD_NUM; i++)
+	{
+		if(BaudRate == UartBaudRate[i]) break;
+	}
+	if(i >= MAX_BAUD_NUM)
+	{// 未找到存在的波特率，则默认为2400
+		i = 3;			
+	}
+	BspCtrl |= (i << 5);
+
+	if(StopBitCode == 2)
+	{
+		BspCtrl |= 0x10;
+	}
+
+	if(ParityCode == 0)
+	{// 无校验
+	
+	}
+	else if(ParityCode == 2)
+	{// 奇校验 
+		BspCtrl |= 0x0C;
+	}
+	else
+	{// 偶校验
+		BspCtrl |= 0x08;
+	}
+
+	if(DataBitCode == 5)
+	{
+		BspCtrl |= 0x00;
+	}
+	else if(DataBitCode == 6)
+	{
+		BspCtrl |= 0x01;
+	}
+	else if(DataBitCode == 7)
+	{
+		BspCtrl |= 0x02;
+	}
+	else
+	{
+		BspCtrl |= 0x03;
+	}
+	return BspCtrl;
+}
+
+void DataResetAction(u32 ResetType, u32 PORTn)
+{
+	Comm_Ram_TypeDef* pCommRam = Comm_Ram;
+	TerminalRunTimeCtrlStruct* pTSysCtrl = (TerminalRunTimeCtrlStruct*)ADDR_Terminal_RunTime;
+	CommunicationParaStruct CommPara;
+	//u32 i = 0, MaxFileName = 0;
+	ms_Type *ms;
+
+	if((u8)ResetType == 0x00)
+	{
+		MC(0, (u32)&CommPara, sizeof(CommunicationParaStruct));
+		MR((u32)&CommPara, ADDR_CommunicationPara, sizeof(CommunicationParaStruct));
+		ME(ADDR_TERMINAL_PARA_START, 128*1024);
+		ME(ADDR_MP_START, 256*1024);
+		Init_ALLPara();
+		MW((u32)&CommPara, ADDR_CommunicationPara, sizeof(CommunicationParaStruct));
+
+		ms = Get_ms();
+		/*MaxFileName = FILENAMEmax_FLASH;
+		for(i = 0; i < MaxFileName; i++)
+		{
+			ms->msfile_Delete(i);
+			checkFile(i);
+			pCommRam->msFILEchange = 0;
+		}*/
+		ms->msfile_format();
+		MC(0, ADDR_E1800001, 256);
+		QCSG_ClearStatisticsData();
+		pTSysCtrl->DayPowerDownCnt = 0;
+		pTSysCtrl->DayPowerDownTime = 0;
+		pTSysCtrl->MonthPowerDownCnt = 0;
+		pTSysCtrl->MonthPowerDownTime = 0;
+		pTSysCtrl->LastAlarmDI = 0;
+		pTSysCtrl->LatelyAlarmNum = 0;	
+		MC(0, ADDR_RS485_CH1_AMR_TaskCtrl, LEN_RS485_CH1_AMR_TaskCtrl * 4);
+	}
+	if((u8)ResetType == 0x01)
+	{
+		ms = Get_ms();
+		/*MaxFileName = FILENAMEmax_FLASH;
+		for(i = 0; i < MaxFileName; i++)
+		{
+			ms->msfile_Delete(i);
+			checkFile(i);
+			pCommRam->msFILEchange = 0;
+		}*/
+		ms->msfile_format();
+		MC(0, ADDR_E1800001, 256);
+		QCSG_ClearStatisticsData();
+		pTSysCtrl->DayPowerDownCnt = 0;
+		pTSysCtrl->DayPowerDownTime = 0;
+		pTSysCtrl->MonthPowerDownCnt = 0;
+		pTSysCtrl->MonthPowerDownTime = 0;
+		pTSysCtrl->LastAlarmDI = 0;
+		pTSysCtrl->LatelyAlarmNum = 0;
+		MC(0, ADDR_RS485_CH1_AMR_TaskCtrl, LEN_RS485_CH1_AMR_TaskCtrl * 4);
+	}
+	//if((u8)ResetType == 0x02)
+	{
+		pCommRam->RESET = 0x55;					//0x55=重启动(立即使用看门狗复位)
+   		pCommRam->ACTION_RESET_PORTn = PORTn;	//操作复位的通信端口号 
+	}
+
+}
+
+
+
+void GetACSampleAddr(u8* Addr)
+{
+	MR((u32)Addr, (u32)ADDR_04000401, METER_ADDR_SIZE);
+}
+
+void SetACSampleAddr(u8* Addr)
+{
+	MW((u32)Addr, (u32)ADDR_04000401, METER_ADDR_SIZE);
+}
+
+u16 FindNwDIFrom_AFN0C_0D_Tbl(u32 NwDI)
+{
+	u16 i = 0;
+	for(i = 0; i < MAX_AFN0C_0D_IDENT_NUM; i++)
+	{
+		if(gc_stQCSGAFN0C_0D_DLT645_Table[i].u32Fn == NwDI) break;
+	}
+	return i;
+}
+
+u16 FindMeterInNodeList(u8* MeterAddr, NodeListStruct* NodeList, u16 NodeListNum)
+{
+	u16 i = 0;
+	for(i = 0; i < NodeListNum; i++)
+	{
+		if((MeterAddr[0] == NodeList[i].Addr[0]) && (MeterAddr[1] == NodeList[i].Addr[1]) &&
+		   (MeterAddr[2] == NodeList[i].Addr[2]) && (MeterAddr[3] == NodeList[i].Addr[3]) &&
+		   (MeterAddr[4] == NodeList[i].Addr[4]) && (MeterAddr[5] == NodeList[i].Addr[5]))
+		{
+			break;
+		}
+	}
+	return i;
+}
+
+u16 FindPortNextMeterInNodeList(u32 PortID, NodeListStruct* NodeList, u16 StartIndex, u16 NodeListNum)
+{
+	u16 i = 0;
+	for(i = StartIndex; i < NodeListNum; i++)
+	{
+		if((NodeList[i].Effective == 0x01) && (NodeList[i].PortID == (u8)PortID)) break;
+	}
+	return i;
+}
+
+
+void TerminalReportAlarmInc(void)
+{
+	TerminalRunTimeCtrlStruct* pTSysCtrl = (TerminalRunTimeCtrlStruct*)ADDR_Terminal_RunTime;
+	if(pTSysCtrl->LatelyAlarmNum < REPORT_ALARM_MAX_NUM) pTSysCtrl->LatelyAlarmNum++;
+}
+
+void TerminalReportAlarmDec(void)
+{
+	TerminalRunTimeCtrlStruct* pTSysCtrl = (TerminalRunTimeCtrlStruct*)ADDR_Terminal_RunTime;
+	if(pTSysCtrl->LatelyAlarmNum > 0) pTSysCtrl->LatelyAlarmNum--;
+}
+
+void TerminalSetLastAlarmDI(u32 AlarmDI)
+{
+	TerminalRunTimeCtrlStruct* pTSysCtrl = (TerminalRunTimeCtrlStruct*)ADDR_Terminal_RunTime;
+	pTSysCtrl->LastAlarmDI = AlarmDI;
+}
+
+u32 TerminalGetLastAlarmDI(void)
+{
+	TerminalRunTimeCtrlStruct* pTSysCtrl = (TerminalRunTimeCtrlStruct*)ADDR_Terminal_RunTime;
+	return pTSysCtrl->LastAlarmDI;
+}
+
+u32 Get_GPRSState(u32 PORTn)	// GPRSPORT
+{
+	UARTCtrl_TypeDef* UARTCtrl;
+  	UARTCtrl = (UARTCtrl_TypeDef *)Get_ADDR_UARTnCtrl(PORTn);
+	return UARTCtrl->State;
+}
+
+void Get_GPRSLocalIPAddr(u8* IPAddr)
+{
+	MR((u32)IPAddr, ADDR_MobilePhoneNumber+40, 16);
+}
+
+void Get_GPRSLocalPort(u8* LocalPort)
+{
+	MR((u32)LocalPort, ADDR_MobilePhoneNumber+40+16, 6);
+}
+
+u32 Get_GPRSSignaldBm(void)		 
+{
+	Terminal_Ram_TypeDef* pTerminalRam = Terminal_Ram;
+	u32 SignaldBm = 0;
+	SignaldBm = pTerminalRam->SignaldBm;
+	if(SignaldBm >= 0x99) SignaldBm = 0;
+	return SignaldBm;
+}
+
+u32 Get_GPRSRxTxBytes(void)
+{
+	UARTCtrl_TypeDef* pUARTCtrl = NULL;
+
+	pUARTCtrl = (UARTCtrl_TypeDef*)Get_ADDR_UARTnCtrl(GPRSPORT);
+
+	return pUARTCtrl->RxTxByte;;
+}
+
+u32 Get_GPRSStoredRxTxBytes(void)
+{
+	TerminalRunTimeCtrlStruct* pTSysCtrl = (TerminalRunTimeCtrlStruct*)ADDR_Terminal_RunTime;
+	return pTSysCtrl->GPRSRxTxBytes;;
+}
+
+void Clear_GPRSRxTxBytes(void)
+{
+	UARTCtrl_TypeDef* pUARTCtrl = NULL;
+
+	pUARTCtrl = (UARTCtrl_TypeDef*)Get_ADDR_UARTnCtrl(GPRSPORT);
+
+	pUARTCtrl->RxTxByte = 0;
+}
+
+u32 Get_GPRSCurMonthRxTxBytes(void)
+{
+	u32 CurMonthRxTxBytes = 0, CurRxTxBytes = 0;
+	CurRxTxBytes = Get_GPRSStoredRxTxBytes();
+	MR((u32)&CurMonthRxTxBytes, ADDR_E1800013, 3);
+	CurMonthRxTxBytes = bcd_hex(CurMonthRxTxBytes);
+	CurMonthRxTxBytes += CurRxTxBytes >> 10;
+	CurMonthRxTxBytes = hex_bcd(CurMonthRxTxBytes);
+
+	return CurMonthRxTxBytes;
+}
+
+u32 GetTerminalRouterInfo(u8* Data)
+{
+	Terminal_Router_TypeDef* pTerminalRouter = Terminal_Router;
+	u32 Index = 0;
+	
+	Data[Index++] = pTerminalRouter->RouterMFCode[0];
+	Data[Index++] = pTerminalRouter->RouterMFCode[1];
+
+	Data[Index++] = pTerminalRouter->RouterICCode[0];
+	Data[Index++] = pTerminalRouter->RouterICCode[1];
+
+	Data[Index++] = pTerminalRouter->RouterVerDate[0];
+	Data[Index++] = pTerminalRouter->RouterVerDate[1];
+	Data[Index++] = pTerminalRouter->RouterVerDate[2];
+	
+	Data[Index++] = pTerminalRouter->RouterVer[0];
+	Data[Index++] = pTerminalRouter->RouterVer[1];
+	return Index;
+}
+
+void Get_MeterAMRSuccessInfo(u8* AmrInfo)
+{	 
+	u32 DayOkMeters = 0, MonthOkMeters = 0;
+	MeterFileInfoStruct* MeterFileInfo = (MeterFileInfoStruct*)ADDR_MeterFileInfo;
+/*	AMRCtrlStruct* AMRCtrl = NULL;
+	
+	if(MeterFileInfo->RS485_CH1_Meters != 0)
+	{
+		AMRCtrl = (AMRCtrlStruct*)Get_AMR_TaskCtrlAddr(RS485_1PORT);
+		if(AMRCtrl != NULL)
+		{
+			DayOkMeters += AMRCtrl->DayFreezOkMeters;
+			MonthOkMeters += AMRCtrl->MonthFreezOkMeters;
+		}
+	}
+
+	if(MeterFileInfo->RS485_CH2_Meters != 0)
+	{
+		AMRCtrl = (AMRCtrlStruct*)Get_AMR_TaskCtrlAddr(RS485_2PORT);
+		if(AMRCtrl != NULL)
+		{
+			DayOkMeters += AMRCtrl->DayFreezOkMeters;
+			MonthOkMeters += AMRCtrl->MonthFreezOkMeters;
+		}
+	}
+
+	if(MeterFileInfo->RS485_CH3_Meters != 0)
+	{
+		AMRCtrl = (AMRCtrlStruct*)Get_AMR_TaskCtrlAddr(RS485_3PORT);
+		if(AMRCtrl != NULL)
+		{
+			DayOkMeters += AMRCtrl->DayFreezOkMeters;
+			MonthOkMeters += AMRCtrl->MonthFreezOkMeters;
+		}
+	}
+
+	if(MeterFileInfo->PLCMeters != 0)
+	{
+		AMRCtrl = (AMRCtrlStruct*)Get_AMR_TaskCtrlAddr(PLC_PORT);
+		if(AMRCtrl != NULL)
+		{
+			DayOkMeters += AMRCtrl->DayFreezOkMeters;
+			MonthOkMeters += AMRCtrl->MonthFreezOkMeters;
+		}
+	}
+*/	
+	DayOkMeters = MeterFileInfo->TotalMeters - MeterFileInfo->AMRDayFreezFailMeters;
+	AmrInfo[0] = DayOkMeters;
+	AmrInfo[1] = DayOkMeters >> 8;
+
+	AmrInfo[2] = MeterFileInfo->AMRDayFreezFailMeters;
+	AmrInfo[3] = MeterFileInfo->AMRDayFreezFailMeters >> 8;
+
+	MonthOkMeters = MeterFileInfo->TotalMeters - MeterFileInfo->AMRMonthFreezFailMeters;
+	AmrInfo[4] = MonthOkMeters;
+	AmrInfo[5] = MonthOkMeters >> 8;
+
+	AmrInfo[6] = MeterFileInfo->AMRMonthFreezFailMeters;
+	AmrInfo[7] = MeterFileInfo->AMRMonthFreezFailMeters >> 8;
+}
+
+
+
+/****************************************************************************
+ 功     能: 组645帧
+ 入口参 数: DLT645FrameStruct* SrcFrame 
+ 出口参 数: u8* FrameBuf
+ 返     回: 645帧长度
+ 调用注 意:
+ 主要算 法:
+ 编     写: zhaoyun
+ 编写时 间; 2015-11-10
+ ****************************************************************************/
+u8 Build645Frame(DLT645FrameStruct* SrcFrame, u8* FrameBuf, u8 Need_FE)
+{
+	 u8 index = 0, i = 0, StartPos = 0;
+	 if(Need_FE != NO_FE_IN_645)
+	 {
+		 FrameBuf[index++] = 0xFE;
+		 FrameBuf[index++] = 0xFE;
+		 FrameBuf[index++] = 0xFE;
+		 FrameBuf[index++] = 0xFE;
+		 StartPos = 4;
+	 }
+	 FrameBuf[index++] = DLT_645_HEAD;
+	 for(i = 0; i < METER_ADDR_SIZE; i++)
+	 {
+		 FrameBuf[index++] = SrcFrame->Addr[i];
+	 }
+	 FrameBuf[index++] = DLT_645_HEAD;
+	 FrameBuf[index++] = SrcFrame->CtrlCode;
+	 FrameBuf[index++] = SrcFrame->DataLen;
+	 for(i = 0; i < SrcFrame->DataLen; i++)
+	 {
+		 FrameBuf[index++] = SrcFrame->Data[i] + DLT_645_FIXED_DATA_SUM;
+	 }
+	 FrameBuf[index++] = SumCaculation(&FrameBuf[StartPos], (SrcFrame->DataLen + DLT_645_FIXED_LEN));
+	 FrameBuf[index++] = DLT_645_TAIL;
+	 return index;
+}
+
+
+
+void Init_ALLPara(void)
+{	
+	RealTimeStruct RealTime;
+	MeasurePointStruct Mp;
+	MW((u32)&DefaultCommuniactionPara, ADDR_CommunicationPara, sizeof(CommunicationParaStruct));
+	MW((u32)&DefaultAlarmEventMaskPara, ADDR_AlarmEventMaskPara, sizeof(AlarmEventMaskParaStruct));
+	MW((u32)&DefaultSettleDatePara, ADDR_SettlementDatePara, sizeof(SettleDateParaStruct));	
+	MW((u32)&DeaultThresholdPara, ADDR_ThresholdPara, sizeof(ThresholdParaStruct));
+	MW((u32)&DefaultRS485Port1Para, ADDR_RS485PortParaTbl, sizeof(RS485PortParaStruct));
+	MW((u32)&DefaultRS485Port2Para, ADDR_RS485PortParaTbl + sizeof(RS485PortParaStruct), sizeof(RS485PortParaStruct));
+	MW((u32)&DefaultRS485Port3Para, ADDR_RS485PortParaTbl + 2*sizeof(RS485PortParaStruct), sizeof(RS485PortParaStruct));
+	MW((u32)&DefaultAttachPara, ADDR_AttachmentPara, sizeof(AttachmentParaStruct));
+	MW((u32)&DefaultLoadManagementPara, ADDR_LoadManagementPara, sizeof(LoadManagementParaStruct));
+
+	MR((u32)&Mp, ADDR_MP_START, sizeof(MeasurePointStruct));
+	GetACSampleAddr(Mp.Addr);
+	if(MeterAddrCheck(Mp.Addr) != NO_ERROR)
+	{
+		HAL_GetSystemTime(&RealTime);
+		MR((u32)Mp.Addr, (u32)&RealTime, METER_ADDR_SIZE);
+		SetACSampleAddr(Mp.Addr);
+	}
+	Mp.State = 0x01;
+	Mp.MeasureType = 0x05;
+	Mp.ProtocolType = DLT_645_PROTOCOL_07;
+	MW((u32)&Mp, ADDR_MP_START, sizeof(MeasurePointStruct));
+	
+}
+
+/************************ (C) COPYRIGHT M***********************END OF FILE****/

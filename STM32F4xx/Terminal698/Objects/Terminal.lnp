@@ -1,0 +1,9 @@
+--cpu Cortex-M4.fp
+".\objects\terminal_entry.o"
+".\objects\terminal_main.o"
+".\objects\terminal_ver.o"
+".\objects\terminal_end.o"
+--strict --scatter ".\Terminal.sct"
+--summary_stderr --info summarysizes --map --xref --callgraph --symbols
+--info sizes --info totals --info unused --info veneers
+--list ".\Listings\Terminal.map" -o .\Objects\Terminal.axf

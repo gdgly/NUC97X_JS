@@ -1,0 +1,30 @@
+
+
+
+LOAD_Test 0x081C0000 0x40000;
+{
+  Test376.HEX 0x081C0000 0x40000;
+  {
+;//Entry
+		Test_Entry.o(RESET,+first)
+		
+		
+    *.o(+RO)
+		
+;//End
+		Test_End.O(Test_End,+LAST)
+  }
+	Test.INI 0x10008000 0x8000;//32K
+	{
+		*(+RW,+ZI)
+	}
+}
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,854 @@
+<html>
+<body>
+<pre>
+<h1>礦ision Build Log</h1>
+<h2>Tool Versions:</h2>
+IDE-Version: μVision V5.22.0.0
+Copyright (C) 2016 ARM Ltd and ARM Germany GmbH. All rights reserved.
+License Information: W ZZ, JYE, LIC=7YKHL-0GHAA-RCTJZ-JEVZZ-XQR6S-HI0Y9
+ 
+Tool Versions:
+Toolchain:       MDK-ARM Professional  Version: 5.22
+Toolchain Path:  C:\Keil_v5\ARM\ARMCC\Bin
+C Compiler:      Armcc.exe V5.06 update 4 (build 422)
+Assembler:       Armasm.exe V5.06 update 4 (build 422)
+Linker/Locator:  ArmLink.exe V5.06 update 4 (build 422)
+Library Manager: ArmAr.exe V5.06 update 4 (build 422)
+Hex Converter:   FromElf.exe V5.06 update 4 (build 422)
+CPU DLL:         SARM.DLL V5.22
+Dialog DLL:      DARMATS9.DLL V1.22.0.0
+Target DLL:      UL2ARM.DLL V1.74.10.0
+Dialog DLL:      TARMATS9.DLL V1.21.0.0
+ 
+<h2>Project:</h2>
+D:\KEIL\NUC97x\Terminal\Terminal698(NUC97x).uvproj
+Project File Date:  12/12/2018
+
+<h2>Output:</h2>
+*** Using Compiler 'V5.06 update 4 (build 422)', folder: 'C:\Keil_v5\ARM\ARMCC\Bin'
+Build Project 'Terminal698(NUC97x)' - Target '698.45'
+compiling Display.c...
+compiling DisplayLoop_ICO.c...
+compiling Ethernet.c...
+D:\KEIL\STM32F4xx\MS\Ethernet.c(555): warning:  #177-D: variable "sourMACMIIDR"  was declared but never referenced
+  	u32 sourMACMIIDR;
+..\..\STM32F4xx\MS\Ethernet.c: 1 warning, 0 errors
+compiling DisplayFlash.c...
+compiling DisplayFTP.c...
+compiling DisplayError.c...
+compiling DisplayLoop_Info.c...
+compiling DisplayLoop.c...
+compiling DisplayLoop_ACSample.c...
+compiling DisplayLoop_Warning.c...
+compiling DisplayLoop_Self.c...
+compiling Warning.c...
+compiling DL698_DisplayLoop_Contrl.c...
+compiling Draw.c...
+compiling Calculate.c...
+compiling DataConversion.c...
+compiling ASMCalculate.c...
+compiling ascii.c...
+compiling Terminal_Main.c...
+D:\KEIL\STM32F4xx\Terminal698\Terminal_Main.c(225): error:  #20: identifier "RTC" is undefined
+  						RTC->BKP0R&=0xffff00ff;//B8-B15 0x55=WWDT看门狗复位标志,其他值为引脚等复位
+D:\KEIL\STM32F4xx\Terminal698\Terminal_Main.c(229): error:  #20: identifier "IWDG" is undefined
+  						while(IWDG->SR!=0)
+D:\KEIL\STM32F4xx\Terminal698\Terminal_Main.c(285): error:  #20: identifier "RTC" is undefined
+  				if(((RTC->BKP0R&0xff)>=2)&&((RTC->BKP0R&0xff)<=4))//任务:0=空,1=等待插入,2=主机插入初始化等待,3=主机插入,4=主机拨出,5=主机结束,6=设备插入,7=设备拨出
+D:\KEIL\STM32F4xx\Terminal698\Terminal_Main.c(429): error:  #20: identifier "RTC" is undefined
+  		if((RTC->BKP0R&0xff)<=1)//任务:0=空,1=等待插入,2=主机插入初始化等待,3=主机插入,4=主机拨出,5=主机结束,6=设备插入,7=设备拨出
+D:\KEIL\STM32F4xx\Terminal698\Terminal_Main.c(431): error:  #20: identifier "SCB" is undefined
+  			SCB->SCR = 0x0;//SLEEPDEEP=0
+D:\KEIL\STM32F4xx\Terminal698\Terminal_Main.c(432): warning:  #223-D: function "__WFI" declared implicitly
+  			__WFI();
+..\..\STM32F4xx\Terminal698\Terminal_Main.c: 1 warning, 5 errors
+compiling Terminal_Init.c...
+compiling SetInit.c...
+compiling Terminal_VER.c...
+compiling Terminal_Timer.c...
+compiling MS_ISR_ASM.c...
+D:\KEIL\STM32F4xx\MS\MS_ISR_ASM.c(395): error: A1616E: Instruction, offset, immediate or register combination is not supported by the current instruction set
+D:\KEIL\STM32F4xx\MS\MS_ISR_ASM.c(396): error: A1616E: Instruction, offset, immediate or register combination is not supported by the current instruction set
+compiling Terminal_PowerDown.c...
+D:\KEIL\STM32F4xx\Terminal698\Terminal_PowerDown.c(491): error:  #20: identifier "RTC" is undefined
+  					if(RTC->BKP19R==0x12345678)//停电上事件判断用上电标志;看门狗复位自动重启=0x12345678,其他值为上电
+..\..\STM32F4xx\Terminal698\Terminal_PowerDown.c: 0 warnings, 1 error
+compiling LOG.c...
+D:\KEIL\STM32F4xx\TEST\LOG.c(291): warning:  #223-D: function "NVIC_DisableIRQ" declared implicitly
+  			NVIC_DisableIRQ(EXTI3_IRQn);//禁止IRQ通道中断(电源下降)//NVIC_EnableIRQ(EXTI3_IRQn);//允许IRQ通道中断(电源下降)
+D:\KEIL\STM32F4xx\TEST\LOG.c(291): error:  #20: identifier "EXTI3_IRQn" is undefined
+  			NVIC_DisableIRQ(EXTI3_IRQn);//禁止IRQ通道中断(电源下降)//NVIC_EnableIRQ(EXTI3_IRQn);//允许IRQ通道中断(电源下降)
+D:\KEIL\STM32F4xx\TEST\LOG.c(298): warning:  #223-D: function "NVIC_EnableIRQ" declared implicitly
+  			NVIC_EnableIRQ(EXTI3_IRQn);//允许IRQ通道中断(电源下降)
+D:\KEIL\STM32F4xx\TEST\LOG.c(323): error:  #136: struct "<unnamed>"  has no field "fdelete"
+  	os->fdelete("N0:/TEST/DL698.log",NULL);//删除文件
+D:\KEIL\STM32F4xx\TEST\LOG.c(324): error:  #136: struct "<unnamed>"  has no field "fdelete"
+  	os->fdelete("N0:/TEST/DL698-old.log",NULL);//删除文件
+D:\KEIL\STM32F4xx\TEST\LOG.c(329): error:  #136: struct "<unnamed>"  has no field "fdelete"
+  	os->fdelete("N0:/TEST/GDW1376-1.log",NULL);//删除文件
+D:\KEIL\STM32F4xx\TEST\LOG.c(330): error:  #136: struct "<unnamed>"  has no field "fdelete"
+  	os->fdelete("N0:/TEST/GDW1376-1-old.log",NULL);//删除文件
+D:\KEIL\STM32F4xx\TEST\LOG.c(335): error:  #136: struct "<unnamed>"  has no field "fdelete"
+  	os->fdelete("N0:/TEST/GDW1376-2.log",NULL);//删除文件
+D:\KEIL\STM32F4xx\TEST\LOG.c(336): error:  #136: struct "<unnamed>"  has no field "fdelete"
+  	os->fdelete("N0:/TEST/GDW1376-2-old.log",NULL);//删除文件
+D:\KEIL\STM32F4xx\TEST\LOG.c(341): error:  #136: struct "<unnamed>"  has no field "fdelete"
+  	os->fdelete("N0:/TEST/GDW1376-3.log",NULL);//删除文件
+D:\KEIL\STM32F4xx\TEST\LOG.c(342): error:  #136: struct "<unnamed>"  has no field "fdelete"
+  	os->fdelete("N0:/TEST/GDW1376-3-old.log",NULL);//删除文件
+D:\KEIL\STM32F4xx\TEST\LOG.c(347): error:  #136: struct "<unnamed>"  has no field "fdelete"
+  	os->fdelete("N0:/TEST/DL645-1997.log",NULL);//删除文件
+D:\KEIL\STM32F4xx\TEST\LOG.c(348): error:  #136: struct "<unnamed>"  has no field "fdelete"
+  	os->fdelete("N0:/TEST/DL645-1997-old.log",NULL);//删除文件
+D:\KEIL\STM32F4xx\TEST\LOG.c(353): error:  #136: struct "<unnamed>"  has no field "fdelete"
+  	os->fdelete("N0:/TEST/DL645-2007.log",NULL);//删除文件
+D:\KEIL\STM32F4xx\TEST\LOG.c(354): error:  #136: struct "<unnamed>"  has no field "fdelete"
+  	os->fdelete("N0:/TEST/DL645-2007-old.log",NULL);//删除文件
+D:\KEIL\STM32F4xx\TEST\LOG.c(743): error:  #20: identifier "FILE" is undefined
+  	FILE *fsfile;
+D:\KEIL\STM32F4xx\TEST\LOG.c(743): error:  #20: identifier "fsfile" is undefined
+  	FILE *fsfile;
+D:\KEIL\STM32F4xx\TEST\LOG.c(744): error:  #268: declaration may not appear after executable statement in block
+  	fsFileInfo info;
+D:\KEIL\STM32F4xx\TEST\LOG.c(744): error:  #20: identifier "fsFileInfo" is undefined
+  	fsFileInfo info;
+D:\KEIL\STM32F4xx\TEST\LOG.c(745): error:  #268: declaration may not appear after executable statement in block
+  	os_Type *os;
+D:\KEIL\STM32F4xx\TEST\LOG.c(746): error:  #268: declaration may not appear after executable statement in block
+  	void *p8s;
+D:\KEIL\STM32F4xx\TEST\LOG.c(757): error:  #136: struct "<unnamed>"  has no field "ffind"
+  			os->ffind(filename_1376_1,&info);
+D:\KEIL\STM32F4xx\TEST\LOG.c(758): error:  #136: struct "<unnamed>"  has no field "fopen"
+  			fsfile=os->fopen(filename_1376_1,"ab");
+D:\KEIL\STM32F4xx\TEST\LOG.c(766): error:  #136: struct "<unnamed>"  has no field "ffind"
+  			os->ffind(filename_1376_2,&info);
+D:\KEIL\STM32F4xx\TEST\LOG.c(767): error:  #136: struct "<unnamed>"  has no field "fopen"
+  			fsfile=os->fopen(filename_1376_2,"ab");
+D:\KEIL\STM32F4xx\TEST\LOG.c(775): error:  #136: struct "<unnamed>"  has no field "ffind"
+  			os->ffind(filename_1376_3,&info);
+D:\KEIL\STM32F4xx\TEST\LOG.c(776): error:  #136: struct "<unnamed>"  has no field "fopen"
+  			fsfile=os->fopen(filename_1376_3,"ab");
+D:\KEIL\STM32F4xx\TEST\LOG.c(784): error:  #136: struct "<unnamed>"  has no field "ffind"
+  			os->ffind(filename_645_1997,&info);
+D:\KEIL\STM32F4xx\TEST\LOG.c(785): error:  #136: struct "<unnamed>"  has no field "fopen"
+  			fsfile=os->fopen(filename_645_1997,"ab");
+D:\KEIL\STM32F4xx\TEST\LOG.c(793): error:  #136: struct "<unnamed>"  has no field "ffind"
+  			os->ffind(filename_645_2007,&info);
+D:\KEIL\STM32F4xx\TEST\LOG.c(794): error:  #136: struct "<unnamed>"  has no field "fopen"
+  			fsfile=os->fopen(filename_645_2007,"ab");
+D:\KEIL\STM32F4xx\TEST\LOG.c(802): error:  #136: struct "<unnamed>"  has no field "ffind"
+  			os->ffind(filename_698,&info);
+..\..\STM32F4xx\TEST\LOG.c: 2 warnings, 30 errors
+compiling Test_RAM.c...
+compiling TestReport.c...
+D:\KEIL\STM32F4xx\TEST\TestReport.c(1523): error:  #20: identifier "FILE" is undefined
+  	FILE *fsfile;
+D:\KEIL\STM32F4xx\TEST\TestReport.c(1523): error:  #20: identifier "fsfile" is undefined
+  	FILE *fsfile;
+D:\KEIL\STM32F4xx\TEST\TestReport.c(1524): error:  #268: declaration may not appear after executable statement in block
+  	os_Type *os;
+D:\KEIL\STM32F4xx\TEST\TestReport.c(1535): error:  #136: struct "<unnamed>"  has no field "fopen"
+  	fsfile=os->fopen("N0:/TEST/TEST.txt","w");
+D:\KEIL\STM32F4xx\TEST\TestReport.c(1538): error:  #136: struct "<unnamed>"  has no field "fwrite"
+  		os->fwrite((void *)(ADDR_128KWRITE_BUFF),1,((u32)p8str)-(ADDR_128KWRITE_BUFF),fsfile);
+D:\KEIL\STM32F4xx\TEST\TestReport.c(1539): error:  #136: struct "<unnamed>"  has no field "fclose"
+  		os->fclose(fsfile);
+..\..\STM32F4xx\TEST\TestReport.c: 0 warnings, 6 errors
+compiling GPRS_SMS_RxTx.c...
+D:\KEIL\STM32F4xx\Device\GPRS_SMS_RxTx.c(769): warning:  #223-D: function "Uart_3761_RxTx" declared implicitly
+  							Uart_3761_RxTx(SMSPORT);//UART_3761接收发送
+D:\KEIL\STM32F4xx\Device\GPRS_SMS_RxTx.c(1127): warning:  #223-D: function "Uart_3761_RxTx" declared implicitly
+  					Uart_3761_RxTx(SMSPORT);//UART_3761接收发送
+D:\KEIL\STM32F4xx\Device\GPRS_SMS_RxTx.c(1142): warning:  #223-D: function "Uart_3761_RxTx" declared implicitly
+  				Uart_3761_RxTx(SMSPORT);//UART_3761接收发送
+..\..\STM32F4xx\Device\GPRS_SMS_RxTx.c: 3 warnings, 0 errors
+compiling GPRS_3763.c...
+D:\KEIL\STM32F4xx\Device\GPRS_3763.c(3361): error:  #20: identifier "PIN_USART6_TX" is undefined
+  	Pin_Configure(PIN_USART6_TX,i);//TXD
+D:\KEIL\STM32F4xx\Device\GPRS_3763.c(3362): error:  #20: identifier "PIN_USART6_RX" is undefined
+  	Pin_Configure(PIN_USART6_RX,i);//RXD
+..\..\STM32F4xx\Device\GPRS_3763.c: 0 warnings, 2 errors
+compiling ATString.c...
+compiling UartAuto_645.c...
+compiling GPRS_FTP_RxTx.c...
+D:\KEIL\STM32F4xx\Device\GPRS_FTP_RxTx.c(719): error:  #20: identifier "FILE" is undefined
+  	FILE *file;
+D:\KEIL\STM32F4xx\Device\GPRS_FTP_RxTx.c(719): error:  #20: identifier "file" is undefined
+  	FILE *file;
+D:\KEIL\STM32F4xx\Device\GPRS_FTP_RxTx.c(720): error:  #268: declaration may not appear after executable statement in block
+  	os_Type *os;	
+D:\KEIL\STM32F4xx\Device\GPRS_FTP_RxTx.c(721): error:  #268: declaration may not appear after executable statement in block
+  	ms_Type* ms;
+D:\KEIL\STM32F4xx\Device\GPRS_FTP_RxTx.c(1081): error:  #136: struct "<unnamed>"  has no field "ffree"
+  						i=os->ffree("N0:");
+D:\KEIL\STM32F4xx\Device\GPRS_FTP_RxTx.c(1085): error:  #136: struct "<unnamed>"  has no field "fdelete"
+  							os->fdelete("N0:/TEST/",NULL);//删除文件
+D:\KEIL\STM32F4xx\Device\GPRS_FTP_RxTx.c(1086): error:  #136: struct "<unnamed>"  has no field "ffree"
+  							i=os->ffree("N0:");
+D:\KEIL\STM32F4xx\Device\GPRS_FTP_RxTx.c(1090): error:  #136: struct "<unnamed>"  has no field "fdelete"
+  								os->fdelete("N0:/Program Files/",NULL);//删除文件
+D:\KEIL\STM32F4xx\Device\GPRS_FTP_RxTx.c(1149): error:  #136: struct "<unnamed>"  has no field "fopen"
+  									file=os->fopen("N0:/Download/MS698.bin","w");
+D:\KEIL\STM32F4xx\Device\GPRS_FTP_RxTx.c(1152): error:  #136: struct "<unnamed>"  has no field "fopen"
+  									file=os->fopen("N0:/Download/OS698.bin","w");
+D:\KEIL\STM32F4xx\Device\GPRS_FTP_RxTx.c(1155): error:  #136: struct "<unnamed>"  has no field "fopen"
+  									file=os->fopen("N0:/Download/Meter698.bin","w");
+D:\KEIL\STM32F4xx\Device\GPRS_FTP_RxTx.c(1158): error:  #136: struct "<unnamed>"  has no field "fopen"
+  									file=os->fopen("N0:/Download/Terminal698.bin","w");
+D:\KEIL\STM32F4xx\Device\GPRS_FTP_RxTx.c(1161): error:  #136: struct "<unnamed>"  has no field "fopen"
+  									file=os->fopen("N0:/Download/Menu698.bin","w");
+D:\KEIL\STM32F4xx\Device\GPRS_FTP_RxTx.c(1164): error:  #136: struct "<unnamed>"  has no field "fopen"
+  									file=os->fopen("N0:/Download/Font.bin","w");
+D:\KEIL\STM32F4xx\Device\GPRS_FTP_RxTx.c(1167): error:  #136: struct "<unnamed>"  has no field "fopen"
+  									file=os->fopen("N0:/Download/Module.bin","w");
+D:\KEIL\STM32F4xx\Device\GPRS_FTP_RxTx.c(1223): error:  #136: struct "<unnamed>"  has no field "fopen"
+  									file=os->fopen("N0:/Download/MS698.zip","w");
+D:\KEIL\STM32F4xx\Device\GPRS_FTP_RxTx.c(1226): error:  #136: struct "<unnamed>"  has no field "fopen"
+  									file=os->fopen("N0:/Download/OS698.zip","w");
+D:\KEIL\STM32F4xx\Device\GPRS_FTP_RxTx.c(1229): error:  #136: struct "<unnamed>"  has no field "fopen"
+  									file=os->fopen("N0:/Download/Meter698.zip","w");
+D:\KEIL\STM32F4xx\Device\GPRS_FTP_RxTx.c(1232): error:  #136: struct "<unnamed>"  has no field "fopen"
+  									file=os->fopen("N0:/Download/Terminal698.zip","w");
+D:\KEIL\STM32F4xx\Device\GPRS_FTP_RxTx.c(1235): error:  #136: struct "<unnamed>"  has no field "fopen"
+  									file=os->fopen("N0:/Download/Menu698.zip","w");
+D:\KEIL\STM32F4xx\Device\GPRS_FTP_RxTx.c(1238): error:  #136: struct "<unnamed>"  has no field "fopen"
+  									file=os->fopen("N0:/Download/Font.zip","w");
+D:\KEIL\STM32F4xx\Device\GPRS_FTP_RxTx.c(1241): error:  #136: struct "<unnamed>"  has no field "fopen"
+  									file=os->fopen("N0:/Download/PACK698.zip","w");
+D:\KEIL\STM32F4xx\Device\GPRS_FTP_RxTx.c(1244): error:  #136: struct "<unnamed>"  has no field "fopen"
+  									file=os->fopen("N0:/Download/Module.zip","w");
+D:\KEIL\STM32F4xx\Device\GPRS_FTP_RxTx.c(1255): error:  #136: struct "<unnamed>"  has no field "fwrite"
+  						os->fwrite(p8s,1,x,file);
+D:\KEIL\STM32F4xx\Device\GPRS_FTP_RxTx.c(1256): error:  #136: struct "<unnamed>"  has no field "fclose"
+  						os->fclose(file);
+..\..\STM32F4xx\Device\GPRS_FTP_RxTx.c: 0 warnings, 25 errors
+compiling Terminal698_Uart_Manage.c...
+compiling Terminal_ReadMeter_ACSample.c...
+compiling DL698_OI_IC.c...
+compiling DL698_TESAM.c...
+compiling DL698_DataDef.c...
+compiling DL698_LINK.cpp...
+compiling DL698_ConnectAppOI.c...
+compiling DL698_UART.cpp...
+compiling DL698_CONNECT.cpp...
+compiling DL698_GET.cpp...
+compiling DL698_TIMETAG.c...
+compiling DL698_SECURITY.c...
+compiling DL698_DATALIB.c...
+compiling DL698_GET_iMeterLIB.c...
+compiling DL698_GET_iMeter.c...
+compiling DL698_DATALIB_2000.c...
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(5): error:  #20: identifier "u8" is undefined
+  const u8 InitData_2131[]=
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(8): error:  #20: identifier "DataType_structure" is undefined
+  	DataType_structure,
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(17): error:  #20: identifier "DataType_double_long_unsigned" is undefined
+  	DataType_double_long_unsigned,
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(20): error:  #20: identifier "DataType_long_unsigned" is undefined
+  	DataType_long_unsigned,
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(56): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_GETLIB_2131[]=//当月A相电压合格率
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(59): error:  #20: identifier "ADDR_2131" is undefined
+    ADDR_2131,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(61): error:  #20: identifier "LENmax_2131" is undefined
+  	LENmax_2131,//FLASH预留的最大长度
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(64): error:  #20: identifier "u32" is undefined
+  	(u32*)InitData_2131,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(64): error:  #29: expected an expression
+  	(u32*)InitData_2131,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(64): error:  #253: expected a ","
+  	(u32*)InitData_2131,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(67): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_GETLIB_2132[]=//当月B相电压合格率
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(70): error:  #20: identifier "ADDR_2132" is undefined
+    ADDR_2132,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(72): error:  #20: identifier "LENmax_2132" is undefined
+  	LENmax_2132,//FLASH预留的最大长度
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(75): error:  #29: expected an expression
+  	(u32*)InitData_2131,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(75): error:  #253: expected a ","
+  	(u32*)InitData_2131,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(78): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_GETLIB_2133[]=//当月C相电压合格率
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(81): error:  #20: identifier "ADDR_2133" is undefined
+    ADDR_2133,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(83): error:  #20: identifier "LENmax_2133" is undefined
+  	LENmax_2133,//FLASH预留的最大长度
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(86): error:  #29: expected an expression
+  	(u32*)InitData_2131,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(86): error:  #253: expected a ","
+  	(u32*)InitData_2131,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(90): error:  #20: identifier "u8" is undefined
+  const u8 InitData_2140[]=
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(100): error:  #20: identifier "DataType_date_time_s" is undefined
+  	DataType_date_time_s,
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(104): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_GETLIB_2140[]=//日最大有功功率及发生时间
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(107): error:  #20: identifier "ADDR_2140" is undefined
+    ADDR_2140,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(109): error:  #20: identifier "LENmax_2140" is undefined
+  	LENmax_2140,//FLASH预留的最大长度
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(112): error:  #29: expected an expression
+  	(u32*)InitData_2140,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(112): error:  #253: expected a ","
+  	(u32*)InitData_2140,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(115): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_GETLIB_2141[]=//月最大有功功率及发生时间
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(118): error:  #20: identifier "ADDR_2141" is undefined
+    ADDR_2141,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_DATALIB_2000.c(120): error:  #20: identifier "LENmax_2141" is undefined
+  	LENmax_2141,//FLASH预留的最大长度
+..\..\STM32F4xx\DL698\DL698_DATALIB_2000.c: 0 warnings, 30 errors
+compiling DL698_GET_4100.c...
+compiling DL698_GET_EVENT.cpp...
+compiling DL698_GET_RECORD.c...
+compiling DL698_GET_F000.cpp...
+compiling DL698_GET_6000.cpp...
+compiling DL698_SETLIB_EVENT.c...
+compiling DL698_SETLIB_2000.c...
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(5): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_230x_2[]=//总加配置表
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(8): error:  #20: identifier "ADDR_230x_2" is undefined
+    ADDR_230x_2,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(10): error:  #20: identifier "LENmax_230x_2" is undefined
+  	LENmax_230x_2,//FLASH预留的最大长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(13): error:  #20: identifier "u32" is undefined
+  	(u32*)InitData_230x_2,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(13): error:  #29: expected an expression
+  	(u32*)InitData_230x_2,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(13): error:  #253: expected a ","
+  	(u32*)InitData_230x_2,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(14): error:  #20: identifier "InitData_230x_2" is undefined
+  	sizeof(InitData_230x_2),//初始化原始数据长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(17): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_230x_13[]=//总加组滑差时间周期
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(20): error:  #20: identifier "ADDR_230x_13" is undefined
+    ADDR_230x_13,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(22): error:  #20: identifier "LENmax_230x_13" is undefined
+  	LENmax_230x_13,//FLASH预留的最大长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(25): error:  #29: expected an expression
+  	(u32*)InitData_230x_13,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(25): error:  #253: expected a ","
+  	(u32*)InitData_230x_13,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(26): error:  #20: identifier "InitData_230x_13" is undefined
+  	sizeof(InitData_230x_13),//初始化原始数据长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(29): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_230x_14[]=//总加组功控轮次配置
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(32): error:  #20: identifier "ADDR_230x_14" is undefined
+    ADDR_230x_14,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(34): error:  #20: identifier "LENmax_230x_14" is undefined
+  	LENmax_230x_14,//FLASH预留的最大长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(37): error:  #29: expected an expression
+  	(u32*)InitData_230x_14,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(37): error:  #253: expected a ","
+  	(u32*)InitData_230x_14,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(38): error:  #20: identifier "InitData_230x_14" is undefined
+  	sizeof(InitData_230x_14),//初始化原始数据长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(41): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_230x_15[]=//总加组电控轮次配置
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(44): error:  #20: identifier "ADDR_230x_15" is undefined
+    ADDR_230x_15,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(46): error:  #20: identifier "LENmax_230x_15" is undefined
+  	LENmax_230x_15,//FLASH预留的最大长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(49): error:  #29: expected an expression
+  	(u32*)InitData_230x_15,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(49): error:  #253: expected a ","
+  	(u32*)InitData_230x_15,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(50): error:  #20: identifier "InitData_230x_15" is undefined
+  	sizeof(InitData_230x_15),//初始化原始数据长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(56): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_240x_2[]=//脉冲计量-通信地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(59): error:  #20: identifier "ADDR_240x_2" is undefined
+    ADDR_240x_2,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(61): error:  #20: identifier "LENmax_240x_2" is undefined
+  	LENmax_240x_2,//FLASH预留的最大长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(73): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_240x_3[]=//脉冲计量-互感器倍率
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_2000.c(76): error:  #20: identifier "ADDR_240x_3" is undefined
+    ADDR_240x_3,//数据地址
+..\..\STM32F4xx\DL698\DL698_SETLIB_2000.c: 0 warnings, 30 errors
+compiling DL698_SETLIB_4000.c...
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(7): error:  #20: identifier "u8" is undefined
+  const u8 DL698_Attribute_4001[]=
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(11): error:  #20: identifier "DataType_octet_string" is undefined
+  		DataType_octet_string,
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(13): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_4001[]=//通信地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(16): error:  #20: identifier "ADDR_4001" is undefined
+    ADDR_4001,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(18): error:  #20: identifier "LENmax_4001" is undefined
+  	LENmax_4001,//FLASH预留的最大长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(20): error:  #20: identifier "u32" is undefined
+  	(u32*)DL698_Attribute_4001,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(20): error:  #29: expected an expression
+  	(u32*)DL698_Attribute_4001,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(20): error:  #253: expected a ","
+  	(u32*)DL698_Attribute_4001,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(21): error:  #29: expected an expression
+  	(u32*)InitData_4001,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(21): error:  #253: expected a ","
+  	(u32*)InitData_4001,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(22): error:  #20: identifier "InitData_4001" is undefined
+  	sizeof(InitData_4001),//初始化原始数据长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(25): error:  #20: identifier "u8" is undefined
+  const u8 DL698_Attribute_4002[]=
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(31): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_4002[]=//表号
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(34): error:  #20: identifier "ADDR_4002" is undefined
+    ADDR_4002,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(36): error:  #20: identifier "LENmax_4002" is undefined
+  	LENmax_4002,//FLASH预留的最大长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(38): error:  #29: expected an expression
+  	(u32*)DL698_Attribute_4002,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(38): error:  #253: expected a ","
+  	(u32*)DL698_Attribute_4002,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(39): error:  #29: expected an expression
+  	(u32*)InitData_4002,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(39): error:  #253: expected a ","
+  	(u32*)InitData_4002,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(40): error:  #20: identifier "InitData_4002" is undefined
+  	sizeof(InitData_4002),//初始化原始数据长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(43): error:  #20: identifier "u8" is undefined
+  const u8 DL698_Attribute_4003[]=
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(49): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_4003[]=//客户编号
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(52): error:  #20: identifier "ADDR_4003" is undefined
+    ADDR_4003,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(54): error:  #20: identifier "LENmax_4003" is undefined
+  	LENmax_4003,//FLASH预留的最大长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(56): error:  #29: expected an expression
+  	(u32*)DL698_Attribute_4003,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(56): error:  #253: expected a ","
+  	(u32*)DL698_Attribute_4003,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(57): error:  #29: expected an expression
+  	(u32*)InitData_4003,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(57): error:  #253: expected a ","
+  	(u32*)InitData_4003,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(58): error:  #20: identifier "InitData_4003" is undefined
+  	sizeof(InitData_4003),//初始化原始数据长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(61): error:  #20: identifier "u8" is undefined
+  const u8 DL698_Attribute_4005[]=
+..\..\STM32F4xx\DL698\DL698_SETLIB_4000.c: 0 warnings, 30 errors
+compiling DL698_SETLIB.c...
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(1375): warning:  #1296-D: extended constant initialiser used
+    (u32)ADDR_4104,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(1405): warning:  #1296-D: extended constant initialiser used
+    (u32)ADDR_4105,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(1432): warning:  #1296-D: extended constant initialiser used
+    (u32)ADDR_4106,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(1461): warning:  #1296-D: extended constant initialiser used
+    (u32)ADDR_4107,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(1479): warning:  #1296-D: extended constant initialiser used
+    (u32)ADDR_4108,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(1503): warning:  #1296-D: extended constant initialiser used
+    (u32)ADDR_4109,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(1520): warning:  #1296-D: extended constant initialiser used
+    (u32)ADDR_410A,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(1538): warning:  #1296-D: extended constant initialiser used
+    (u32)ADDR_410B,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(1616): warning:  #1296-D: extended constant initialiser used
+    (u32)ADDR_4111,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(1850): warning:  #1296-D: extended constant initialiser used
+    (u32)ADDR_4300_2,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(1893): warning:  #1296-D: extended constant initialiser used
+    (u32)ADDR_4300_3,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(1916): warning:  #1296-D: extended constant initialiser used
+    (u32)ADDR_4300_4,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(1935): warning:  #1296-D: extended constant initialiser used
+    (u32)ADDR_4300_5,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_4000.c(1956): warning:  #1296-D: extended constant initialiser used
+    (u32)ADDR_4300_6,//数据地址
+..\..\STM32F4xx\DL698\DL698_SETLIB.c: 14 warnings, 0 errors
+compiling DL698_SETLIB_5000.c...
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(5): error:  #20: identifier "u8" is undefined
+  const u8 DL698_Attribute_50xx[]=
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(9): error:  #20: identifier "DataType_array" is undefined
+  	DataType_array,
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(12): error:  #20: identifier "DataType_structure" is undefined
+  	DataType_structure,
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(15): error:  #20: identifier "DataType_long_unsigned" is undefined
+  	DataType_long_unsigned,
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(17): error:  #20: identifier "DataType_OAD" is undefined
+  	DataType_OAD,
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(23): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_5000[]=//瞬时冻结关联对象属性表
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(26): error:  #20: identifier "ADDR_5000" is undefined
+    ADDR_5000,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(28): error:  #20: identifier "LENmax_50xx" is undefined
+  	LENmax_50xx,//FLASH预留的最大长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(30): error:  #20: identifier "u32" is undefined
+  	(u32*)DL698_Attribute_50xx,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(30): error:  #29: expected an expression
+  	(u32*)DL698_Attribute_50xx,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(30): error:  #253: expected a ","
+  	(u32*)DL698_Attribute_50xx,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(31): error:  #29: expected an expression
+  	(u32*)InitData_5000,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(31): error:  #253: expected a ","
+  	(u32*)InitData_5000,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(32): error:  #20: identifier "InitData_5000" is undefined
+  	sizeof(InitData_5000),//初始化原始数据长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(35): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_5001[]=//秒冻结关联对象属性表
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(38): error:  #20: identifier "ADDR_5001" is undefined
+    ADDR_5001,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(42): error:  #29: expected an expression
+  	(u32*)DL698_Attribute_50xx,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(42): error:  #253: expected a ","
+  	(u32*)DL698_Attribute_50xx,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(43): error:  #29: expected an expression
+  	(u32*)InitData_5001,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(43): error:  #253: expected a ","
+  	(u32*)InitData_5001,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(44): error:  #20: identifier "InitData_5001" is undefined
+  	sizeof(InitData_5001),//初始化原始数据长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(47): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_5002[]=//分钟冻结关联对象属性表
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(50): error:  #20: identifier "ADDR_5002" is undefined
+    ADDR_5002,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(54): error:  #29: expected an expression
+  	(u32*)DL698_Attribute_50xx,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(54): error:  #253: expected a ","
+  	(u32*)DL698_Attribute_50xx,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(55): error:  #29: expected an expression
+  	(u32*)InitData_5002,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(55): error:  #253: expected a ","
+  	(u32*)InitData_5002,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(56): error:  #20: identifier "InitData_5002" is undefined
+  	sizeof(InitData_5002),//初始化原始数据长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(59): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_5003[]=//小时冻结关联对象属性表
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_5000.c(62): error:  #20: identifier "ADDR_5003" is undefined
+    ADDR_5003,//数据地址
+..\..\STM32F4xx\DL698\DL698_SETLIB_5000.c: 0 warnings, 30 errors
+compiling DL698_SETLIB_6000.c...
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(7): error:  #20: identifier "u8" is undefined
+  const u8 DL698_Attribute_6000_2[]=
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(11): error:  #20: identifier "DataType_structure" is undefined
+  	DataType_structure,
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(14): error:  #20: identifier "DataType_long_unsigned" is undefined
+  	DataType_long_unsigned,
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(20): error:  #20: identifier "DataType_TSA" is undefined
+  	DataType_TSA,
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(22): error:  #20: identifier "DataType_enum" is undefined
+  	DataType_enum,
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(39): error:  #20: identifier "DataType_OAD" is undefined
+  	DataType_OAD,
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(41): error:  #20: identifier "DataType_octet_string" is undefined
+  	DataType_octet_string,
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(43): error:  #20: identifier "DataType_unsigned" is undefined
+  	DataType_unsigned,
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(74): error:  #20: identifier "DataType_array" is undefined
+  	DataType_array,
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(81): error:  #20: identifier "DataType_Data" is undefined
+  	DataType_Data,
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(86): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_6000_2_0[]=//采集档案配置0
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(89): error:  #20: identifier "ADDR_6000" is undefined
+    ADDR_6000,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(90): error:  #20: identifier "LENper_6000" is undefined
+  	LENper_6000,//当数组的每组有固定间隔时为每组的固定间隔长度,否则为0
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(91): error:  #20: identifier "LENmax_6000" is undefined
+  	LENmax_6000,//FLASH预留的最大长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(93): error:  #20: identifier "u32" is undefined
+  	(u32*)DL698_Attribute_6000_2,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(93): error:  #29: expected an expression
+  	(u32*)DL698_Attribute_6000_2,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(93): error:  #253: expected a ","
+  	(u32*)DL698_Attribute_6000_2,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(94): error:  #29: expected an expression
+  	(u32*)InitData_6000_2_0,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(94): error:  #253: expected a ","
+  	(u32*)InitData_6000_2_0,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(95): error:  #20: identifier "InitData_6000_2_0" is undefined
+  	sizeof(InitData_6000_2_0),//初始化原始数据长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(97): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_6000_2_1[]=//采集档案配置1
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(104): error:  #29: expected an expression
+  	(u32*)DL698_Attribute_6000_2,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(104): error:  #253: expected a ","
+  	(u32*)DL698_Attribute_6000_2,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(105): error:  #29: expected an expression
+  	(u32*)InitData_6000_2_1,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(105): error:  #253: expected a ","
+  	(u32*)InitData_6000_2_1,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(106): error:  #20: identifier "InitData_6000_2_1" is undefined
+  	sizeof(InitData_6000_2_1),//初始化原始数据长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(108): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_6000_2_2[]=//采集档案配置2
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(115): error:  #29: expected an expression
+  	(u32*)DL698_Attribute_6000_2,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(115): error:  #253: expected a ","
+  	(u32*)DL698_Attribute_6000_2,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_6000.c(116): error:  #29: expected an expression
+  	(u32*)InitData_6000_2_2,//初始化原始数据指针
+..\..\STM32F4xx\DL698\DL698_SETLIB_6000.c: 0 warnings, 30 errors
+compiling DL698_SETLIB_8000.c...
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(6): error:  #20: identifier "u8" is undefined
+  const u8 DL698_Attribute_8000_2[]=
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(10): error:  #20: identifier "DataType_structure" is undefined
+  	DataType_structure,
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(13): error:  #20: identifier "DataType_double_long_unsigned" is undefined
+  	DataType_double_long_unsigned,
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(15): error:  #20: identifier "DataType_long_unsigned" is undefined
+  	DataType_long_unsigned,
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(18): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_8000_2[]=//遥控-属性2（配置参数)
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(21): error:  #20: identifier "ADDR_8000_2" is undefined
+    ADDR_8000_2,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(23): error:  #20: identifier "LENmax_8000_2" is undefined
+  	LENmax_8000_2,//FLASH预留的最大长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(25): error:  #20: identifier "u32" is undefined
+  	(u32*)DL698_Attribute_8000_2,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(25): error:  #29: expected an expression
+  	(u32*)DL698_Attribute_8000_2,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(25): error:  #253: expected a ","
+  	(u32*)DL698_Attribute_8000_2,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(30): error:  #20: identifier "u8" is undefined
+  const u8 DL698_Attribute_8000_3[]=
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(34): error:  #20: identifier "DataType_bit_string" is undefined
+  	DataType_bit_string,
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(37): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_8000_3[]=//遥控-属性3（继电器输出状态，只读)
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(40): error:  #20: identifier "ADDR_8000_3" is undefined
+    ADDR_8000_3,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(42): error:  #20: identifier "LENmax_8000_3" is undefined
+  	LENmax_8000_3,//FLASH预留的最大长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(44): error:  #29: expected an expression
+  	(u32*)DL698_Attribute_8000_3,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(44): error:  #253: expected a ","
+  	(u32*)DL698_Attribute_8000_3,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(49): error:  #20: identifier "u8" is undefined
+  const u8 DL698_Attribute_8000_4[]=
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(56): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_8000_4[]=//遥控-属性4(告警状态，只读)
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(59): error:  #20: identifier "ADDR_8000_4" is undefined
+    ADDR_8000_4,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(61): error:  #20: identifier "LENmax_8000_4" is undefined
+  	LENmax_8000_4,//FLASH预留的最大长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(63): error:  #29: expected an expression
+  	(u32*)DL698_Attribute_8000_4,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(63): error:  #253: expected a ","
+  	(u32*)DL698_Attribute_8000_4,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(68): error:  #20: identifier "u8" is undefined
+  const u8 DL698_Attribute_8000_5[]=
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(75): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_8000_5[]=//遥控-属性5（命令状态，只读)
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(78): error:  #20: identifier "ADDR_8000_5" is undefined
+    ADDR_8000_5,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(80): error:  #20: identifier "LENmax_8000_5" is undefined
+  	LENmax_8000_5,//FLASH预留的最大长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(82): error:  #29: expected an expression
+  	(u32*)DL698_Attribute_8000_5,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(82): error:  #253: expected a ","
+  	(u32*)DL698_Attribute_8000_5,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_8000.c(87): error:  #20: identifier "u8" is undefined
+  const u8 DL698_Attribute_8001_2[]=
+..\..\STM32F4xx\DL698\DL698_SETLIB_8000.c: 0 warnings, 30 errors
+compiling DL698_SETLIB_F000.c...
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(6): error:  #20: identifier "u8" is undefined
+  const u8 DL698_Attribute_F100[]=
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(9): error:  #20: identifier "DataType_Data" is undefined
+  	DataType_Data,
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(11): error:  #20: identifier "u8" is undefined
+  const u8 DL698_Attribute_F002_4[]=
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(15): error:  #20: identifier "DataType_structure" is undefined
+  	DataType_structure,
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(18): error:  #20: identifier "DataType_octet_string" is undefined
+  	DataType_octet_string,
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(20): error:  #20: identifier "DataType_long_unsigned" is undefined
+  	DataType_long_unsigned,
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(22): error:  #20: identifier "DataType_visible_string" is undefined
+  	DataType_visible_string,
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(28): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_F002_4[]=//FTP服务器信息
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(31): error:  #20: identifier "ADDR_F002_4" is undefined
+    ADDR_F002_4,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(33): error:  #20: identifier "LENmax_F002_4" is undefined
+  	LENmax_F002_4,//FLASH预留的最大长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(35): error:  #20: identifier "u32" is undefined
+  	(u32*)DL698_Attribute_F002_4,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(35): error:  #29: expected an expression
+  	(u32*)DL698_Attribute_F002_4,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(35): error:  #253: expected a ","
+  	(u32*)DL698_Attribute_F002_4,//数据类型列表指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(36): error:  #29: expected an expression
+  	(u32*)InitData_F002_4,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(36): error:  #253: expected a ","
+  	(u32*)InitData_F002_4,//初始化原始数据指针
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(37): error:  #20: identifier "InitData_F002_4" is undefined
+  	sizeof(InitData_F002_4),//初始化原始数据长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(40): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_F100_2[]=//ESAM序列号
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(43): error:  #20: identifier "ADDR_F100_2" is undefined
+    ADDR_F100_2,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(45): error:  #20: identifier "LENmax_F100_2" is undefined
+  	LENmax_F100_2,//FLASH预留的最大长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(51): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_F100_3[]=//ESAM版本号
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(54): error:  #20: identifier "ADDR_F100_3" is undefined
+    ADDR_F100_3,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(56): error:  #20: identifier "LENmax_F100_3" is undefined
+  	LENmax_F100_3,//FLASH预留的最大长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(62): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_F100_4[]=//对称密钥版本
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(65): error:  #20: identifier "ADDR_F100_4" is undefined
+    ADDR_F100_4,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(67): error:  #20: identifier "LENmax_F100_4" is undefined
+  	LENmax_F100_4,//FLASH预留的最大长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(73): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_F100_5[]=//会话时效门限
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(76): error:  #20: identifier "ADDR_F100_5" is undefined
+    ADDR_F100_5,//数据地址
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(78): error:  #20: identifier "LENmax_F100_5" is undefined
+  	LENmax_F100_5,//FLASH预留的最大长度
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(84): error:  #20: identifier "DL698_SETLIB_TypeDef" is undefined
+  const DL698_SETLIB_TypeDef  DL698_SETLIB_F100_6[]=//会话时效剩余时间
+D:\KEIL\STM32F4xx\DL698\DL698_SETLIB_F000.c(87): error:  #20: identifier "ADDR_F100_6" is undefined
+    ADDR_F100_6,//数据地址
+..\..\STM32F4xx\DL698\DL698_SETLIB_F000.c: 0 warnings, 30 errors
+compiling DL698_SET.cpp...
+compiling DL698_SET_EVENT.cpp...
+compiling DL698_ACTION_EVENT.cpp...
+compiling DL698_SET_6000.cpp...
+compiling DL698_ACTION.cpp...
+compiling DL698_ACTION_5000.c...
+compiling DL698_ACTION_4000.cpp...
+compiling DL698_ACTION_6000.cpp...
+compiling DL698_ACTION_8000.cpp...
+compiling DL698_ACTION_F000.cpp...
+compiling DL698_REPORT.c...
+compiling DL698_PROXY.c...
+compiling DL698_GET_SET_ACTION_2000.c...
+compiling DL698_FactoryTest.c...
+compiling DL698_FILE.c...
+D:\KEIL\STM32F4xx\DL698\DL698_FILE.c(111): error:  #20: identifier "FILE" is undefined
+  	FILE *file;
+D:\KEIL\STM32F4xx\DL698\DL698_FILE.c(111): error:  #20: identifier "file" is undefined
+  	FILE *file;
+D:\KEIL\STM32F4xx\DL698\DL698_FILE.c(112): error:  #268: declaration may not appear after executable statement in block
+  	os_Type *os;
+D:\KEIL\STM32F4xx\DL698\DL698_FILE.c(113): error:  #268: declaration may not appear after executable statement in block
+  	ms_Type* ms;
+D:\KEIL\STM32F4xx\DL698\DL698_FILE.c(242): error:  #136: struct "<unnamed>"  has no field "ffree"
+  					i=os->ffree("N0:");
+D:\KEIL\STM32F4xx\DL698\DL698_FILE.c(246): error:  #136: struct "<unnamed>"  has no field "fdelete"
+  						os->fdelete("N0:/TEST/",NULL);//删除文件
+D:\KEIL\STM32F4xx\DL698\DL698_FILE.c(247): error:  #136: struct "<unnamed>"  has no field "ffree"
+  						i=os->ffree("N0:");
+D:\KEIL\STM32F4xx\DL698\DL698_FILE.c(251): error:  #136: struct "<unnamed>"  has no field "fdelete"
+  							os->fdelete("N0:/Program Files/",NULL);//删除文件
+D:\KEIL\STM32F4xx\DL698\DL698_FILE.c(283): error:  #136: struct "<unnamed>"  has no field "fopen"
+  							file=os->fopen("N0:/Download/MS698.zip","w");
+D:\KEIL\STM32F4xx\DL698\DL698_FILE.c(286): error:  #136: struct "<unnamed>"  has no field "fopen"
+  							file=os->fopen("N0:/Download/OS698.zip","w");
+D:\KEIL\STM32F4xx\DL698\DL698_FILE.c(289): error:  #136: struct "<unnamed>"  has no field "fopen"
+  							file=os->fopen("N0:/Download/Meter698.zip","w");
+D:\KEIL\STM32F4xx\DL698\DL698_FILE.c(292): error:  #136: struct "<unnamed>"  has no field "fopen"
+  							file=os->fopen("N0:/Download/Terminal698.zip","w");
+D:\KEIL\STM32F4xx\DL698\DL698_FILE.c(295): error:  #136: struct "<unnamed>"  has no field "fopen"
+  							file=os->fopen("N0:/Download/Menu698.zip","w");
+D:\KEIL\STM32F4xx\DL698\DL698_FILE.c(298): error:  #136: struct "<unnamed>"  has no field "fopen"
+  							file=os->fopen("N0:/Download/Font.zip","w");
+D:\KEIL\STM32F4xx\DL698\DL698_FILE.c(301): error:  #136: struct "<unnamed>"  has no field "fopen"
+  							file=os->fopen("N0:/Download/PACK698.zip","w");
+D:\KEIL\STM32F4xx\DL698\DL698_FILE.c(304): error:  #136: struct "<unnamed>"  has no field "fopen"
+  							file=os->fopen("N0:/Download/Module698.zip","w");
+D:\KEIL\STM32F4xx\DL698\DL698_FILE.c(319): error:  #136: struct "<unnamed>"  has no field "fwrite"
+  					os->fwrite(p8s,1,x,file);
+D:\KEIL\STM32F4xx\DL698\DL698_FILE.c(320): error:  #136: struct "<unnamed>"  has no field "fclose"
+  					os->fclose(file);
+..\..\STM32F4xx\DL698\DL698_FILE.c: 0 warnings, 18 errors
+compiling DL698_SETInit_USER0xx.c...
+compiling DL698_SETInit_Event_USER0xx.c...
+compiling DL698_SETInit_6000_Project3xx_USER0xx.c...
+compiling DL698_SETInit_6000_Project2xx_USER0xx.c...
+compiling DL698_SETInit_USER9xx.c...
+compiling DL698_SETInit_Event_USER9xx.c...
+compiling DL698_SETInit_6000_Project2xx_USER9xx.c...
+compiling DL698_SETInit_USER15xx.c...
+compiling DL698_SETInit_6000_Project3xx_USER15xx.c...
+compiling DL698_SETInit_Event_USER15xx.c...
+compiling DL698_SETInit_USER16xx.c...
+compiling DL698_SETInit_6000_Project4xx_USER16xx.c...
+compiling DL698_SETInit_Event_USER16xx.c...
+compiling TASK.cpp...
+compiling DL698_SETInit_601E.c...
+compiling RM_TASK.cpp...
+compiling RM_RS485_Manage.cpp...
+compiling RM_TASK_USERxxx.c...
+compiling RM_RS485.c...
+compiling RM_3762_Manage.c...
+compiling RM_3762.c...
+D:\KEIL\STM32F4xx\DL698\RM_3762.c(154): error:  #20: identifier "PIN_UART4_RX" is undefined
+  			Pin_Configure(PIN_UART4_RX,//RXD输入,下拉
+D:\KEIL\STM32F4xx\DL698\RM_3762.c(161): error:  #20: identifier "PIN_UART4_TX" is undefined
+  			Pin_Configure(PIN_UART4_TX,//TXD输入,下拉
+..\..\STM32F4xx\DL698\RM_3762.c: 0 warnings, 2 errors
+compiling Uart_3762_RxTx.c...
+compiling RM_3762_RouterActive.c...
+compiling RM_3762_iActive_HPLC.c...
+compiling RM_3762_iActive.c...
+compiling RM_TxDATA_DL1997.cpp...
+compiling Info_3762.c...
+compiling RM_TxDATA.c...
+compiling RM_TxDATA_DL698.cpp...
+compiling RM_TxDATA_ABB.c...
+compiling RM_TxDATA_DL2007.cpp...
+compiling RM_TxDATA_Landis.c...
+compiling RM_RxDATA.cpp...
+compiling RM_RxDATA_DL1997.cpp...
+compiling RM_RxDATA_ABB.c...
+compiling RM_RxDATA_DL698.cpp...
+compiling RM_RxDATA_DL2007.cpp...
+compiling RM_RxDATA_Landis.c...
+compiling PROXY_TASK.c...
+compiling BroadcastTime.c...
+compiling AutoSearchMeter_RS485.c...
+compiling AutoSearchMeter_3762.c...
+compiling Get_RM_Record.c...
+compiling RM_Record.cpp...
+compiling MeterAutoReport.c...
+compiling CONGEAL_Record.c...
+D:\KEIL\STM32F4xx\DL698\CONGEAL_Record.c(981): error:  #268: declaration may not appear after executable statement in block
+  extern const u8 InitData_2131[];
+D:\KEIL\STM32F4xx\DL698\CONGEAL_Record.c(981): error:  #67: expected a "}"
+  extern const u8 InitData_2131[];
+D:\KEIL\STM32F4xx\DL698\CONGEAL_Record.c(986): error:  #169: expected a declaration
+  	if(CongealFlag&4)//冻结标志:B0=日冻结,B1=月冻结,B2=分冻结，B3...
+D:\KEIL\STM32F4xx\DL698\CONGEAL_Record.c(1023): warning:  #12-D: parsing restarts here after previous syntax error
+  		Init_Data230x_D();//初始化总加组日数据
+D:\KEIL\STM32F4xx\DL698\CONGEAL_Record.c(1025): error:  #169: expected a declaration
+  	}
+D:\KEIL\STM32F4xx\DL698\CONGEAL_Record.c(1055): warning:  #12-D: parsing restarts here after previous syntax error
+  		Init_Data230x_M();//初始化总加组月数据
+D:\KEIL\STM32F4xx\DL698\CONGEAL_Record.c(1057): error:  #169: expected a declaration
+  	}
+D:\KEIL\STM32F4xx\DL698\CONGEAL_Record.c(1072): warning: At end of source:  #12-D: parsing restarts here after previous syntax error
+..\..\STM32F4xx\DL698\CONGEAL_Record.c: 3 warnings, 5 errors
+compiling SearchMeter_Record.c...
+compiling EVENT_Record.c...
+compiling MeterAutoReport_Record.c...
+compiling EVENT_CALC.c...
+compiling EVENT_CALC_iMeter.c...
+compiling CALC_SwitchIn.c...
+compiling RM_Event_DL2007.c...
+compiling CALC_RESET_FLOW_TIME.c...
+compiling CALC_Voltage_Qualification_Rate.c...
+compiling CALC_impIn.c...
+compiling CALC_TAG.c...
+compiling Contrl_Manage.c...
+compiling Contrl_Uart.c...
+compiling Contrl_Remote.c...
+compiling Contrl_Power.c...
+compiling Contrl_Out.c...
+compiling Contrl_Energy.c...
+compiling Contrl_State.c...
+compiling DL698TEST_1.c...
+compiling DL698TEST_USER9xx.c...
+".\Objects\Terminal698(NUC97x).axf" - 306 Error(s), 24 Warning(s).
+Target not created.
+Build Time Elapsed:  00:00:48
+</pre>
+</body>
+</html>

@@ -1,0 +1,24 @@
+
+
+
+LOAD_ETH1 0x00024258 0x000BFE00;//768K-512(150*4=600=0x258)
+{
+  eth1.bin 0x00024258 0x000BFE00;//768K-512
+  {
+;//Entry
+		*.o(RESET,+first)
+		;*(InRoot$$Sections);//__main()的一部分
+    .ANY (+RO)
+		
+;//End
+  }
+	
+	RW_RAM1 0x00440000 0x00040000;//+0;RW_RAM1 start address is after ER_ROM1
+	{
+		.ANY (+RW +ZI)
+	}
+}
+
+
+
+

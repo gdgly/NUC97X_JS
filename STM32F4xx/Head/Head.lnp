@@ -1,0 +1,4 @@
+--cpu Cortex-M3 "addr_entry.o" --strict --scatter "Head.sct" 
+--summary_stderr --info summarysizes --map --xref --callgraph --symbols 
+--info sizes --info totals --info unused --info veneers 
+ --list ".\Head.map" -o "Head.axf"

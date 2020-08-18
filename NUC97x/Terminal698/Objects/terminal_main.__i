@@ -1,0 +1,6 @@
+-c --cpu ARM926EJ-S -g -O0 --apcs=interwork --split_sections -I ..\..\STM32F4xx\H698
+-IC:\Keil_v5\ARM\RV31\INC
+-IC:\Keil_v5\ARM\CMSIS\Include
+-IC:\Keil_v5\ARM\Inc\Toshiba
+-D__UVISION_VERSION="522" -DMainProtocol="698"
+-o .\objects\terminal_main.o --depend .\objects\terminal_main.d "..\..\STM32F4xx\Terminal698\Terminal_Main.c"

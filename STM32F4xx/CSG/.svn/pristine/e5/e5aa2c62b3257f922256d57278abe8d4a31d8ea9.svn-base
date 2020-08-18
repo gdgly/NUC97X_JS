@@ -1,0 +1,1131 @@
+/*************************************************
+版  权:正泰仪表智能终端部
+文  件:QCSG_AlarmEvent.c
+作  者:zhaoyun
+版  本:1.00
+日  期:20171120
+描  述:终端任务接口
+*************************************************/
+/* Includes ------------------------------------------------------------------*/
+#include <string.h>
+#include <stdio.h>
+#include "../Hcsg/ProjectCSG.h"
+#include "../QCSG_Head/QCSG_UpLinkProtocol.h"
+#include "../QCSG_Head/QCSG_LocalLinkProtocol.h"
+#include "../QCSG_Head/QCSG_DLT645_Protocol.h"
+
+#include "../QCSG_Head/Chint_Type.h"
+#include "../QCSG_Head/QCSG_PublicDefine.h"
+#include "../QCSG_Head/QCSG_PublicFunc.h"
+#include "../QCSG_Head/QCSG_Table.h"
+#include "../QCSG_Data/QCSG_DefaultData.h"
+#include "../QCSG_Data/QCSG_NandDataInterface.h"
+#include "../QCSG_Uart/TerminalQCSG_Uart_Manage.h"
+
+#include "../STM32F4xx/STM32F4xx_IO.h"
+#include "../STM32F4xx/STM32F4xx_UART.h"
+#include "../STM32F4xx/STM32F4xx_DMA.h"
+#include "../Device/MEMRW.h"
+#include "../Calculate/Calculate.h"
+#include "../Display/Warning.h"
+#include "../LIB/Ethernet.h"
+#include "../QCSG_Head/QCSG_Hal.h"
+#include "../QCSG_Head/QCSG_AlarmEvent.h"
+
+//typedef QCSG_RTREADMETER_REQ_INFO_S RealTimeAMRReqStruct;
+/* Private typedef -----------------------------------------------------------*/
+/* Private define ------------------------------------------------------------*/
+/* Private constants ---------------------------------------------------------*/
+/* Private macro -------------------------------------------------------------*/
+/* Private variables ---------------------------------------------------------*/
+/* Public variables ----------------------------------------------------------*/
+/* Private function prototypes -----------------------------------------------*/
+/* Private functions ---------------------------------------------------------*/
+/* Public functions ----------------------------------------------------------*/
+
+ResultEnum GenerateVoltageLossCntAlarm_E2000040(u32 MeterIndex, ThresholdParaStruct* Threshold)
+{	
+	ARD15Struct ARD15;
+	//MeasurePointStruct Mp;
+	RealTimeYYStruct YYTime;
+	AlarmAMRDataStruct* AlarmAMRDataNew = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_New;
+	AlarmAMRDataStruct* AlarmAMRDataOld = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_Old;
+	NodeListStruct* NodeList = (NodeListStruct*)ADDR_NodeList;
+	u32 AlarmDI = 0, DataLen = 0, VoltageLossCntNew = 0, VoltageLossCntOld = 0; 
+
+	AlarmDI = 0xE2000040;
+	if(QCSG_CheckAlarmConfig(AlarmDI) == FALSE) return ERROR_WRONG_ACCESS;
+	if(MeterIndex > MAX_PN_NUM) return ERROR_WRONG_ACCESS;
+	if(NodeList[MeterIndex].PointMeterType != METER_TYPE_MULTI)  return ERROR_WRONG_ACCESS;
+	
+	MR((u32)&VoltageLossCntNew, (u32)AlarmAMRDataNew[MeterIndex].DI_10010001, 3);
+	MR((u32)&VoltageLossCntOld, (u32)AlarmAMRDataOld[MeterIndex].DI_10010001, 3);
+	if(VoltageLossCntNew == VoltageLossCntOld)
+	{
+		MR((u32)&VoltageLossCntNew, (u32)AlarmAMRDataNew[MeterIndex].DI_10020001, 3);
+		MR((u32)&VoltageLossCntOld, (u32)AlarmAMRDataOld[MeterIndex].DI_10020001, 3);
+		if(VoltageLossCntNew == VoltageLossCntOld)
+		{
+			MR((u32)&VoltageLossCntNew, (u32)AlarmAMRDataNew[MeterIndex].DI_10030001, 3);
+			MR((u32)&VoltageLossCntOld, (u32)AlarmAMRDataOld[MeterIndex].DI_10030001, 3);
+			if(VoltageLossCntNew == VoltageLossCntOld)
+			{
+				 return ERROR_WRONG_ACCESS;
+			}
+		}
+	}
+	
+	MC(0xFF, (u32)&ARD15, sizeof(ARD15Struct));	
+	MR((u32)&ARD15.C_03010000[DataLen], (u32)AlarmAMRDataNew[MeterIndex].DI_10010001, 3);
+	DataLen += 3;
+	MR((u32)&ARD15.C_03010000[DataLen], (u32)AlarmAMRDataNew[MeterIndex].DI_10010002, 3);
+	DataLen += 3;
+
+	MR((u32)&ARD15.C_03010000[DataLen], (u32)AlarmAMRDataNew[MeterIndex].DI_10020001, 3);
+	DataLen += 3;
+	MR((u32)&ARD15.C_03010000[DataLen], (u32)AlarmAMRDataNew[MeterIndex].DI_10020002, 3);
+	DataLen += 3;
+
+	MR((u32)&ARD15.C_03010000[DataLen], (u32)AlarmAMRDataNew[MeterIndex].DI_10030001, 3);
+	DataLen += 3;
+	MR((u32)&ARD15.C_03010000[DataLen], (u32)AlarmAMRDataNew[MeterIndex].DI_10030002, 3);
+	DataLen += 3;
+
+	ARD15.State = 0x01;
+	ARD15.ReportState = 0;
+	HAL_GetSystemTime(&ARD15.Time);
+	RealTimeToYYTime(&ARD15.Time, &YYTime);
+	YYTime.Report = 0;
+	YYTime.Ack = 0;
+	DataLen = sizeof(ARD15Struct);
+	NAND_WriteAlarmRecord(NodeList[MeterIndex].Addr, AlarmDI, &YYTime, (u8*)&ARD15, &DataLen);
+	if(QCSG_CheckAlarmReport(AlarmDI) == TRUE) 
+	{
+		TerminalReportAlarmInc();
+	}
+	TerminalSetLastAlarmDI(AlarmDI);
+	return NO_ERROR;
+}
+
+ResultEnum GenerateCurrentLossCntAlarm_E2000041(u32 MeterIndex, ThresholdParaStruct* Threshold)
+{	
+	ARD16Struct ARD16;
+	//MeasurePointStruct Mp;
+	RealTimeYYStruct YYTime;
+	AlarmAMRDataStruct* AlarmAMRDataNew = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_New;
+	AlarmAMRDataStruct* AlarmAMRDataOld = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_Old;
+	NodeListStruct* NodeList = (NodeListStruct*)ADDR_NodeList;
+	u32 AlarmDI = 0, DataLen = 0, VoltageLossCntNew = 0, VoltageLossCntOld = 0; 
+
+	AlarmDI = 0xE2000041;
+	if(QCSG_CheckAlarmConfig(AlarmDI) == FALSE) return ERROR_WRONG_ACCESS;
+	if(MeterIndex > MAX_PN_NUM) return ERROR_WRONG_ACCESS;
+	if(NodeList[MeterIndex].PointMeterType != METER_TYPE_MULTI)  return ERROR_WRONG_ACCESS;
+	
+	MR((u32)&VoltageLossCntNew, (u32)AlarmAMRDataNew[MeterIndex].DI_18010001, 3);
+	MR((u32)&VoltageLossCntOld, (u32)AlarmAMRDataOld[MeterIndex].DI_18010001, 3);
+	if(VoltageLossCntNew == VoltageLossCntOld)
+	{
+		MR((u32)&VoltageLossCntNew, (u32)AlarmAMRDataNew[MeterIndex].DI_18020001, 3);
+		MR((u32)&VoltageLossCntOld, (u32)AlarmAMRDataOld[MeterIndex].DI_18020001, 3);
+		if(VoltageLossCntNew == VoltageLossCntOld)
+		{
+			MR((u32)&VoltageLossCntNew, (u32)AlarmAMRDataNew[MeterIndex].DI_18030001, 3);
+			MR((u32)&VoltageLossCntOld, (u32)AlarmAMRDataOld[MeterIndex].DI_18030001, 3);
+			if(VoltageLossCntNew == VoltageLossCntOld)
+			{
+				 return ERROR_WRONG_ACCESS;
+			}
+		}
+	}
+	
+	MC(0xFF, (u32)&ARD16, sizeof(ARD16Struct));	
+	MR((u32)&ARD16.C_030B0000[DataLen], (u32)AlarmAMRDataNew[MeterIndex].DI_18010001, 3);
+	DataLen += 3;
+	MR((u32)&ARD16.C_030B0000[DataLen], (u32)AlarmAMRDataNew[MeterIndex].DI_18010002, 3);
+	DataLen += 3;
+
+	MR((u32)&ARD16.C_030B0000[DataLen], (u32)AlarmAMRDataNew[MeterIndex].DI_18020001, 3);
+	DataLen += 3;
+	MR((u32)&ARD16.C_030B0000[DataLen], (u32)AlarmAMRDataNew[MeterIndex].DI_18020002, 3);
+	DataLen += 3;
+
+	MR((u32)&ARD16.C_030B0000[DataLen], (u32)AlarmAMRDataNew[MeterIndex].DI_18030001, 3);
+	DataLen += 3;
+	MR((u32)&ARD16.C_030B0000[DataLen], (u32)AlarmAMRDataNew[MeterIndex].DI_18030002, 3);
+	DataLen += 3;
+
+	ARD16.State = 0x01;
+	ARD16.ReportState = 0;
+	HAL_GetSystemTime(&ARD16.Time);
+	RealTimeToYYTime(&ARD16.Time, &YYTime);
+	YYTime.Report = 0;
+	YYTime.Ack = 0;
+	DataLen = sizeof(ARD16Struct);
+	NAND_WriteAlarmRecord(NodeList[MeterIndex].Addr, AlarmDI, &YYTime, (u8*)&ARD16, &DataLen);
+	if(QCSG_CheckAlarmReport(AlarmDI) == TRUE) 
+	{
+		TerminalReportAlarmInc();
+	}
+	TerminalSetLastAlarmDI(AlarmDI);
+	return NO_ERROR;
+}
+
+ResultEnum GenerateCurrentReverseCntAlarm_E2000042(u32 MeterIndex, ThresholdParaStruct* Threshold)
+{	
+	ARD17Struct ARD17;
+	//MeasurePointStruct Mp;
+	RealTimeYYStruct YYTime;
+	AlarmAMRDataStruct* AlarmAMRDataNew = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_New;
+	AlarmAMRDataStruct* AlarmAMRDataOld = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_Old;
+	NodeListStruct* NodeList = (NodeListStruct*)ADDR_NodeList;
+	u32 AlarmDI = 0, DataLen = 0, VoltageLossCntNew = 0, VoltageLossCntOld = 0; 
+
+	AlarmDI = 0xE2000042;
+	if(QCSG_CheckAlarmConfig(AlarmDI) == FALSE) return ERROR_WRONG_ACCESS;
+	if(MeterIndex > MAX_PN_NUM) return ERROR_WRONG_ACCESS;
+	if(NodeList[MeterIndex].PointMeterType != METER_TYPE_MULTI)  return ERROR_WRONG_ACCESS;
+	
+	MR((u32)&VoltageLossCntNew, (u32)AlarmAMRDataNew[MeterIndex].DI_1B010001, 3);
+	MR((u32)&VoltageLossCntOld, (u32)AlarmAMRDataOld[MeterIndex].DI_1B010001, 3);
+	if(VoltageLossCntNew == VoltageLossCntOld)
+	{
+		MR((u32)&VoltageLossCntNew, (u32)AlarmAMRDataNew[MeterIndex].DI_1B020001, 3);
+		MR((u32)&VoltageLossCntOld, (u32)AlarmAMRDataOld[MeterIndex].DI_1B020001, 3);
+		if(VoltageLossCntNew == VoltageLossCntOld)
+		{
+			MR((u32)&VoltageLossCntNew, (u32)AlarmAMRDataNew[MeterIndex].DI_1B030001, 3);
+			MR((u32)&VoltageLossCntOld, (u32)AlarmAMRDataOld[MeterIndex].DI_1B030001, 3);
+			if(VoltageLossCntNew == VoltageLossCntOld)
+			{
+				 return ERROR_WRONG_ACCESS;
+			}
+		}
+	}
+	
+	MC(0xFF, (u32)&ARD17, sizeof(ARD17Struct));	
+	MR((u32)&ARD17.C_030E0000[DataLen], (u32)AlarmAMRDataNew[MeterIndex].DI_1B010001, 3);
+	DataLen += 3;
+	MR((u32)&ARD17.C_030E0000[DataLen], (u32)AlarmAMRDataNew[MeterIndex].DI_1B010002, 3);
+	DataLen += 3;
+
+	MR((u32)&ARD17.C_030E0000[DataLen], (u32)AlarmAMRDataNew[MeterIndex].DI_1B020001, 3);
+	DataLen += 3;
+	MR((u32)&ARD17.C_030E0000[DataLen], (u32)AlarmAMRDataNew[MeterIndex].DI_1B020002, 3);
+	DataLen += 3;
+
+	MR((u32)&ARD17.C_030E0000[DataLen], (u32)AlarmAMRDataNew[MeterIndex].DI_1B030001, 3);
+	DataLen += 3;
+	MR((u32)&ARD17.C_030E0000[DataLen], (u32)AlarmAMRDataNew[MeterIndex].DI_1B030002, 3);
+	DataLen += 3;
+
+	ARD17.State = 0x01;
+	ARD17.ReportState = 0;
+	HAL_GetSystemTime(&ARD17.Time);
+	RealTimeToYYTime(&ARD17.Time, &YYTime);
+	YYTime.Report = 0;
+	YYTime.Ack = 0;
+	DataLen = sizeof(ARD17Struct);
+	NAND_WriteAlarmRecord(NodeList[MeterIndex].Addr, AlarmDI, &YYTime, (u8*)&ARD17, &DataLen);
+	if(QCSG_CheckAlarmReport(AlarmDI) == TRUE) 
+	{
+		TerminalReportAlarmInc();
+	}
+	TerminalSetLastAlarmDI(AlarmDI);
+	return NO_ERROR;
+}
+
+ResultEnum GenerateAVoltageLossAlarm_E2000016(u32 MeterIndex)
+{	
+	ARD02Struct ARD02;
+	//MeasurePointStruct Mp;
+	RealTimeYYStruct YYTime;
+	AlarmAMRDataStruct* AlarmAMRDataNew = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_New;
+	AlarmAMRDataStruct* AlarmAMRDataOld = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_Old;
+	NodeListStruct* NodeList = (NodeListStruct*)ADDR_NodeList;
+	u32 AlarmDI = 0, DataLen = 0, New = 0;
+
+	AlarmDI = 0xE2000016;
+	if(QCSG_CheckAlarmConfig(AlarmDI) == FALSE) return ERROR_WRONG_ACCESS;
+	if(MeterIndex > MAX_PN_NUM) return ERROR_WRONG_ACCESS;
+	MR((u32)&New, (u32)AlarmAMRDataNew[MeterIndex].DI_04000504, 2);
+	
+	if((New & 0x00000001) == 0)
+	{
+		//if((AlarmAMRDataOld[MeterIndex].AlarmFlag & ALAMR_FLAG_VOLTAGE_A_LOSS_E2000016) == 0) return ERROR_WRONG_ACCESS;
+		//MC(0xFF, (u32)&ARD02, sizeof(ARD02Struct));
+		//ARD02.State = 0x00;
+		AlarmAMRDataOld[MeterIndex].AlarmFlag &= ~ALAMR_FLAG_VOLTAGE_A_LOSS_E2000016;
+		return ERROR_WRONG_ACCESS;
+	}
+	else
+	{
+		if((AlarmAMRDataOld[MeterIndex].AlarmFlag & ALAMR_FLAG_VOLTAGE_A_LOSS_E2000016) != 0) return ERROR_WRONG_ACCESS;
+		AlarmAMRDataOld[MeterIndex].AlarmFlag |= ALAMR_FLAG_VOLTAGE_A_LOSS_E2000016;
+		MC(0xFF, (u32)&ARD02, sizeof(ARD02Struct));
+		ARD02.State = 0x01;
+	}	
+	MR((u32)ARD02.C_00010000, (u32)AlarmAMRDataNew[MeterIndex].DI_00010000, 4);
+	MR((u32)ARD02.C_00020000, (u32)AlarmAMRDataNew[MeterIndex].DI_00020000, 4);
+	MR((u32)ARD02.C_00030000, (u32)AlarmAMRDataNew[MeterIndex].DI_00030000, 4);
+	MR((u32)ARD02.C_00040000, (u32)AlarmAMRDataNew[MeterIndex].DI_00040000, 4);
+	MR((u32)ARD02.C_0201FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0201FF00, 6);
+	MR((u32)ARD02.C_0202FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0202FF00, 9);
+	MR((u32)ARD02.C_0203FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0203FF00, 12);
+	MR((u32)ARD02.C_0204FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0204FF00, 12);
+	MR((u32)ARD02.C_0206FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0206FF00, 8);
+	
+	ARD02.ReportState = 0;
+	HAL_GetSystemTime(&ARD02.Time);
+	RealTimeToYYTime(&ARD02.Time, &YYTime);
+	YYTime.Report = 0;
+	YYTime.Ack = 0;
+	DataLen = sizeof(ARD02Struct);
+	NAND_WriteAlarmRecord(NodeList[MeterIndex].Addr, AlarmDI, &YYTime, (u8*)&ARD02, &DataLen);
+	if(QCSG_CheckAlarmReport(AlarmDI) == TRUE) 
+	{
+		TerminalReportAlarmInc();
+	}
+	TerminalSetLastAlarmDI(AlarmDI);
+	return NO_ERROR;
+}
+
+
+ResultEnum GenerateACurrentLossAlarm_E2000013(u32 MeterIndex)
+{	
+	ARD02Struct ARD02;
+	//MeasurePointStruct Mp;
+	RealTimeYYStruct YYTime;
+	AlarmAMRDataStruct* AlarmAMRDataNew = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_New;
+	AlarmAMRDataStruct* AlarmAMRDataOld = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_Old;
+	NodeListStruct* NodeList = (NodeListStruct*)ADDR_NodeList;
+	u32 AlarmDI = 0, DataLen = 0, New = 0;
+
+	AlarmDI = 0xE2000013;
+	if(QCSG_CheckAlarmConfig(AlarmDI) == FALSE) return ERROR_WRONG_ACCESS;
+	if(MeterIndex > MAX_PN_NUM) return ERROR_WRONG_ACCESS;
+	MR((u32)&New, (u32)AlarmAMRDataNew[MeterIndex].DI_04000504, 2);
+	
+	if((New & 0x00000008) == 0)
+	{
+		//if((AlarmAMRDataOld[MeterIndex].AlarmFlag & ALAMR_FLAG_VOLTAGE_A_LOSS_E2000016) == 0) return ERROR_WRONG_ACCESS;
+		//MC(0xFF, (u32)&ARD02, sizeof(ARD02Struct));
+		//ARD02.State = 0x00;
+		AlarmAMRDataOld[MeterIndex].AlarmFlag &= ~ALAMR_FLAG_CURRENT_A_LOSS_E2000013;
+		return ERROR_WRONG_ACCESS;
+	}
+	else
+	{
+		if((AlarmAMRDataOld[MeterIndex].AlarmFlag & ALAMR_FLAG_CURRENT_A_LOSS_E2000013) != 0) return ERROR_WRONG_ACCESS;
+		AlarmAMRDataOld[MeterIndex].AlarmFlag |= ALAMR_FLAG_CURRENT_A_LOSS_E2000013;
+		MC(0xFF, (u32)&ARD02, sizeof(ARD02Struct));
+		ARD02.State = 0x01;
+	}	
+	MR((u32)ARD02.C_00010000, (u32)AlarmAMRDataNew[MeterIndex].DI_00010000, 4);
+	MR((u32)ARD02.C_00020000, (u32)AlarmAMRDataNew[MeterIndex].DI_00020000, 4);
+	MR((u32)ARD02.C_00030000, (u32)AlarmAMRDataNew[MeterIndex].DI_00030000, 4);
+	MR((u32)ARD02.C_00040000, (u32)AlarmAMRDataNew[MeterIndex].DI_00040000, 4);
+	MR((u32)ARD02.C_0201FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0201FF00, 6);
+	MR((u32)ARD02.C_0202FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0202FF00, 9);
+	MR((u32)ARD02.C_0203FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0203FF00, 12);
+	MR((u32)ARD02.C_0204FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0204FF00, 12);
+	MR((u32)ARD02.C_0206FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0206FF00, 8);
+	
+	ARD02.ReportState = 0;
+	HAL_GetSystemTime(&ARD02.Time);
+	RealTimeToYYTime(&ARD02.Time, &YYTime);
+	YYTime.Report = 0;
+	YYTime.Ack = 0;
+	DataLen = sizeof(ARD02Struct);
+	NAND_WriteAlarmRecord(NodeList[MeterIndex].Addr, AlarmDI, &YYTime, (u8*)&ARD02, &DataLen);
+	if(QCSG_CheckAlarmReport(AlarmDI) == TRUE) 
+	{
+		TerminalReportAlarmInc();
+	}
+	TerminalSetLastAlarmDI(AlarmDI);
+	return NO_ERROR;
+}
+
+
+ResultEnum GenerateACurrentReverseAlarm_E200000D(u32 MeterIndex)
+{	
+	ARD02Struct ARD02;
+	//MeasurePointStruct Mp;
+	RealTimeYYStruct YYTime;
+	AlarmAMRDataStruct* AlarmAMRDataNew = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_New;
+	AlarmAMRDataStruct* AlarmAMRDataOld = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_Old;
+	NodeListStruct* NodeList = (NodeListStruct*)ADDR_NodeList;
+	u32 AlarmDI = 0, DataLen = 0, New = 0;
+
+	AlarmDI = 0xE200000D;
+	if(QCSG_CheckAlarmConfig(AlarmDI) == FALSE) return ERROR_WRONG_ACCESS;
+	if(MeterIndex > MAX_PN_NUM) return ERROR_WRONG_ACCESS;
+	MR((u32)&New, (u32)AlarmAMRDataNew[MeterIndex].DI_04000504, 2);
+	
+	if((New & 0x00000040) == 0)
+	{
+		//if((AlarmAMRDataOld[MeterIndex].AlarmFlag & ALAMR_FLAG_VOLTAGE_A_LOSS_E2000016) == 0) return ERROR_WRONG_ACCESS;
+		//MC(0xFF, (u32)&ARD02, sizeof(ARD02Struct));
+		//ARD02.State = 0x00;
+		AlarmAMRDataOld[MeterIndex].AlarmFlag &= ~ALAMR_FLAG_CURRENT_A_REVERSE_E200000D;
+		return ERROR_WRONG_ACCESS;
+	}
+	else
+	{
+		if((AlarmAMRDataOld[MeterIndex].AlarmFlag & ALAMR_FLAG_CURRENT_A_REVERSE_E200000D) != 0) return ERROR_WRONG_ACCESS;
+		AlarmAMRDataOld[MeterIndex].AlarmFlag |= ALAMR_FLAG_CURRENT_A_REVERSE_E200000D;
+		MC(0xFF, (u32)&ARD02, sizeof(ARD02Struct));
+		ARD02.State = 0x01;
+	}	
+	MR((u32)ARD02.C_00010000, (u32)AlarmAMRDataNew[MeterIndex].DI_00010000, 4);
+	MR((u32)ARD02.C_00020000, (u32)AlarmAMRDataNew[MeterIndex].DI_00020000, 4);
+	MR((u32)ARD02.C_00030000, (u32)AlarmAMRDataNew[MeterIndex].DI_00030000, 4);
+	MR((u32)ARD02.C_00040000, (u32)AlarmAMRDataNew[MeterIndex].DI_00040000, 4);
+	MR((u32)ARD02.C_0201FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0201FF00, 6);
+	MR((u32)ARD02.C_0202FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0202FF00, 9);
+	MR((u32)ARD02.C_0203FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0203FF00, 12);
+	MR((u32)ARD02.C_0204FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0204FF00, 12);
+	MR((u32)ARD02.C_0206FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0206FF00, 8);
+	
+	ARD02.ReportState = 0;
+	HAL_GetSystemTime(&ARD02.Time);
+	RealTimeToYYTime(&ARD02.Time, &YYTime);
+	YYTime.Report = 0;
+	YYTime.Ack = 0;
+	DataLen = sizeof(ARD02Struct);
+	NAND_WriteAlarmRecord(NodeList[MeterIndex].Addr, AlarmDI, &YYTime, (u8*)&ARD02, &DataLen);
+	if(QCSG_CheckAlarmReport(AlarmDI) == TRUE) 
+	{
+		TerminalReportAlarmInc();
+	}
+	TerminalSetLastAlarmDI(AlarmDI);
+	return NO_ERROR;
+}
+ResultEnum GenerateTimeFaultAlarm_E200003E(u32 MeterIndex, ThresholdParaStruct* Threshold)
+{	
+	ARD13Struct ARD13;
+	//MeasurePointStruct Mp;
+	RealTimeStruct MeterTime;
+	RealTimeYYStruct YYTime;
+	u32 TimeResult[4];
+	AlarmAMRDataStruct* AlarmAMRDataNew = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_New;
+	AlarmAMRDataStruct* AlarmAMRDataOld = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_Old;
+	NodeListStruct* NodeList = (NodeListStruct*)ADDR_NodeList;
+	u32 AlarmDI = 0, DataLen = 0, DiffTime = 0, ThresholdTime = 0; 
+	AlarmDI = 0xE200003E;
+	if(QCSG_CheckAlarmConfig(AlarmDI) == FALSE) return ERROR_WRONG_ACCESS;
+	if(MeterIndex > MAX_PN_NUM) return ERROR_WRONG_ACCESS;
+
+	MeterTime.u8Second = AlarmAMRDataNew[MeterIndex].DI_04000102[0];
+	MeterTime.u8Minute = AlarmAMRDataNew[MeterIndex].DI_04000102[1];
+	MeterTime.u8Hour = AlarmAMRDataNew[MeterIndex].DI_04000102[2];
+
+	MeterTime.u8Day = AlarmAMRDataNew[MeterIndex].DI_04000101[1];
+	MeterTime.u8Month = AlarmAMRDataNew[MeterIndex].DI_04000101[2];
+	MeterTime.u8Year = AlarmAMRDataNew[MeterIndex].DI_04000101[3];
+	MeterTime.u8Week = AlarmAMRDataNew[MeterIndex].DI_04000101[0];
+
+	MC(0xFF, (u32)&ARD13, sizeof(ARD13Struct));
+	HAL_GetSystemTime(&ARD13.Time);
+	MC(0, (u32)TimeResult, 16);
+	QCSG_TimerSub(&ARD13.Time, &MeterTime, TimeResult);
+	if(Threshold->E0000188 == 0xFF)
+	{
+		ThresholdTime = 0x0A;
+	}
+	else
+	{
+		ThresholdTime = bcd_hex(Threshold->E0000188);
+	}
+	DiffTime = TimeResult[0] * 24 *60;
+	DiffTime += TimeResult[1] * 60;
+	DiffTime += TimeResult[2];
+	//if((TimeResult[0] == 0) && (TimeResult[1] == 0) && (TimeResult[2] <= ThresholdTime))
+	if(DiffTime <= ThresholdTime)
+	{
+		//if((AlarmAMRDataOld[MeterIndex].AlarmFlag & ALAMR_FLAG_TIME_FAULT_E200003E) == 0) return ERROR_WRONG_ACCESS;
+		//ARD13.State = 0x00;
+		AlarmAMRDataOld[MeterIndex].AlarmFlag &= ~ALAMR_FLAG_TIME_FAULT_E200003E;
+		return ERROR_WRONG_ACCESS;
+	}
+	else
+	{
+		if((AlarmAMRDataOld[MeterIndex].AlarmFlag & ALAMR_FLAG_TIME_FAULT_E200003E) != 0) return ERROR_WRONG_ACCESS;
+		AlarmAMRDataOld[MeterIndex].AlarmFlag |= ALAMR_FLAG_TIME_FAULT_E200003E;
+		ARD13.State = 0x01;
+	}
+		
+	MR((u32)ARD13.C_04000101, (u32)AlarmAMRDataNew[MeterIndex].DI_04000101, 4);
+	MR((u32)ARD13.C_04000102, (u32)AlarmAMRDataNew[MeterIndex].DI_04000102, 4);
+	MR((u32)ARD13.C_E0000130, (u32)&ARD13.Time, sizeof(RealTimeStruct));
+
+	ARD13.ReportState = 0;
+	RealTimeToYYTime(&ARD13.Time, &YYTime);
+	YYTime.Report = 0;
+	YYTime.Ack = 0;
+	DataLen = sizeof(ARD13Struct);
+	NAND_WriteAlarmRecord(NodeList[MeterIndex].Addr, AlarmDI, &YYTime, (u8*)&ARD13, &DataLen);
+	if(QCSG_CheckAlarmReport(AlarmDI) == TRUE) 
+	{
+		TerminalReportAlarmInc();
+	}
+	TerminalSetLastAlarmDI(AlarmDI);
+	return NO_ERROR;
+}
+
+ResultEnum GenerateMeterAMRFailAlarm_E200003D(u32 MeterIndex)
+{	
+	ARD21Struct ARD21;
+	//MeasurePointStruct Mp;
+	RealTimeYYStruct YYTime;
+	//AlarmAMRDataStruct* AlarmAMRDataNew = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_New;
+	AlarmAMRDataStruct* AlarmAMRDataOld = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_Old;
+	NodeListStruct* NodeList = (NodeListStruct*)ADDR_NodeList;
+	u32 AlarmDI = 0, DataLen = 0, Pos = 0, Bit = 0; 
+
+	AlarmDI = 0xE200003D;
+	if(QCSG_CheckAlarmConfig(AlarmDI) == FALSE) return ERROR_WRONG_ACCESS;
+	if(MeterIndex > MAX_PN_NUM) return ERROR_WRONG_ACCESS;
+	if(NodeList[MeterIndex].FailCnt < 3)
+	{
+		/*MC(0, (u32)&ARD21, sizeof(ARD21Struct));
+		if((NodeList[MeterIndex].FailCnt == 0) && 
+		   ((AlarmAMRDataOld[MeterIndex].AlarmFlag & ALAMR_FLAG_AMR_FAIL_E200003D) != 0))
+		{
+			AlarmAMRDataOld[MeterIndex].AlarmFlag &= ~ALAMR_FLAG_AMR_FAIL_E200003D;
+			ARD21.State = 0x00;
+		}
+		else
+		{
+			return ERROR_WRONG_ACCESS;
+		}*/
+		return ERROR_WRONG_ACCESS;
+	}
+	else
+	{
+		MC(0, (u32)&ARD21, sizeof(ARD21Struct));
+		#if(TEST_ON == 1)
+			NodeList[MeterIndex].FailCnt = 0;
+		#else
+			NodeList[MeterIndex].FailCnt--;
+		#endif	
+		ARD21.State = 0x01;
+		AlarmAMRDataOld[MeterIndex].PowerNoneZeroStartSecond = 0;	// 防止测试抄表失败告警时，产生停走告警
+		AlarmAMRDataOld[MeterIndex].AlarmFlag |= ALAMR_FLAG_TIME_FAULT_E200003E; // 防止测试抄表失败告警时，产生时钟异常告警
+		AlarmAMRDataOld[MeterIndex].AlarmFlag |= ALAMR_FLAG_POWER_STOP_E200002E; // 防止测试抄表失败告警时，产生停走告警
+	}
+	Pos = MeterIndex << 3;
+	Bit = MeterIndex & 0x07;	
+	ARD21.Di[Pos] |= 1 << Bit;	
+	ARD21.ReportState = 0;
+	HAL_GetSystemTime(&ARD21.Time);
+	RealTimeToYYTime(&ARD21.Time, &YYTime);
+	YYTime.Report = 0;
+	YYTime.Ack = 0;
+	DataLen = sizeof(ARD21Struct);
+	//NAND_WriteAlarmRecord(NodeList[MeterIndex].Addr, AlarmDI, &YYTime, (u8*)&ARD21, &DataLen);
+	NAND_WriteAlarmRecord(NodeList[0].Addr, AlarmDI, &YYTime, (u8*)&ARD21, &DataLen);
+	if(QCSG_CheckAlarmReport(AlarmDI) == TRUE) 
+	{
+		TerminalReportAlarmInc();
+	}
+	TerminalSetLastAlarmDI(AlarmDI);
+	return NO_ERROR;
+}
+
+ResultEnum GenerateMeterRelayControlAlarm_E200003C(u32 MeterIndex, ThresholdParaStruct* Threshold)
+{	
+	ARD12Struct ARD12;
+	//MeasurePointStruct Mp;
+	RealTimeYYStruct YYTime;
+	AlarmAMRDataStruct* AlarmAMRDataNew = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_New;
+	AlarmAMRDataStruct* AlarmAMRDataOld = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_Old;
+	NodeListStruct* NodeList = (NodeListStruct*)ADDR_NodeList;
+	u32 AlarmDI = 0, DataLen = 0, SystemSeconds = 0, New = 0; 
+
+	if(AlarmAMRDataOld[MeterIndex].MeterControlStartSecond == 0) return ERROR_WRONG_ACCESS;
+	
+	SystemSeconds = HAL_GetSystemSecond();
+	MR((u32)&New, (u32)AlarmAMRDataNew[MeterIndex].DI_04000503, 2);
+	if(AlarmAMRDataOld[MeterIndex].MeterControlType == METER_CONTROL_SWITCH_ON)
+	{
+		if((SystemSeconds - AlarmAMRDataOld[MeterIndex].MeterControlStartSecond) < 
+		    AlarmAMRDataOld[MeterIndex].MeterControlLastSecond)
+		{
+			return ERROR_WRONG_ACCESS;
+		}
+
+		if((New & 0x00000010) == 0) return ERROR_WRONG_ACCESS;
+	}
+	else if(AlarmAMRDataOld[MeterIndex].MeterControlType == METER_CONTROL_SWITCH_OFF)
+	{
+		if((SystemSeconds - AlarmAMRDataOld[MeterIndex].MeterControlStartSecond) < 
+		    AlarmAMRDataOld[MeterIndex].MeterControlLastSecond)
+		{
+			return ERROR_WRONG_ACCESS;
+		}
+		#if(TEST_ON == 0)
+		if((New & 0x00000010) != 0) return ERROR_WRONG_ACCESS;
+		#endif
+	}
+	else
+	{
+		 return ERROR_WRONG_ACCESS;
+	}
+
+	AlarmDI = 0xE200003C;
+	if(QCSG_CheckAlarmConfig(AlarmDI) == FALSE) return ERROR_WRONG_ACCESS;
+	if(MeterIndex > MAX_PN_NUM) return ERROR_WRONG_ACCESS;
+
+	//if((AlarmAMRDataOld[MeterIndex].AlarmFlag & ALAMR_FLAG_RELAY_CONTROL_FAIL_E200003C) != 0) return ERROR_WRONG_ACCESS;
+	//AlarmAMRDataOld[MeterIndex].AlarmFlag |= ALAMR_FLAG_RELAY_CONTROL_FAIL_E200003C;
+
+	AlarmAMRDataOld[MeterIndex].MeterControlStartSecond = 0;
+	AlarmAMRDataOld[MeterIndex].MeterControlLastSecond = 0;
+	AlarmAMRDataOld[MeterIndex].MeterControlType = 0;
+	MC(0xFF, (u32)&ARD12, sizeof(ARD12Struct));	
+	MR((u32)ARD12.C_04000503, (u32)AlarmAMRDataNew[MeterIndex].DI_04000503, 2);
+
+	ARD12.State = 0x01;
+	ARD12.ReportState = 0;
+	HAL_GetSystemTime(&ARD12.Time);
+	RealTimeToYYTime(&ARD12.Time, &YYTime);
+	YYTime.Report = 0;
+	YYTime.Ack = 0;
+	DataLen = sizeof(ARD12Struct);
+	NAND_WriteAlarmRecord(NodeList[MeterIndex].Addr, AlarmDI, &YYTime, (u8*)&ARD12, &DataLen);
+	if(QCSG_CheckAlarmReport(AlarmDI) == TRUE) 
+	{
+		TerminalReportAlarmInc();
+	}
+	TerminalSetLastAlarmDI(AlarmDI);
+	return NO_ERROR;
+}
+
+ResultEnum GenerateRelayChangeAlarm_E200003B(u32 MeterIndex, ThresholdParaStruct* Threshold)
+{	
+	ARD12Struct ARD12;
+	//MeasurePointStruct Mp;
+	RealTimeYYStruct YYTime;
+	AlarmAMRDataStruct* AlarmAMRDataNew = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_New;
+	AlarmAMRDataStruct* AlarmAMRDataOld = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_Old;
+	NodeListStruct* NodeList = (NodeListStruct*)ADDR_NodeList;
+	u32 AlarmDI = 0, DataLen = 0, Old = 0, New = 0; 
+
+	AlarmDI = 0xE200003B;
+	if(QCSG_CheckAlarmConfig(AlarmDI) == FALSE) return ERROR_WRONG_ACCESS;
+	if(MeterIndex > MAX_PN_NUM) return ERROR_WRONG_ACCESS;
+
+	MR((u32)&New, (u32)AlarmAMRDataNew[MeterIndex].DI_04000503, 2);
+	MR((u32)&Old, (u32)AlarmAMRDataOld[MeterIndex].DI_04000503, 2);
+
+	if((Old & 0x00000010) == (New & 0x00000010)) return ERROR_WRONG_ACCESS;
+
+	AlarmAMRDataOld[MeterIndex].MeterControlStartSecond = 0;
+	AlarmAMRDataOld[MeterIndex].MeterControlLastSecond = 0;
+	
+	MC(0xFF, (u32)&ARD12, sizeof(ARD12Struct));	
+	MR((u32)ARD12.C_04000503, (u32)AlarmAMRDataNew[MeterIndex].DI_04000503, 2);
+	ARD12.State = 0x01;
+	ARD12.ReportState = 0;
+	HAL_GetSystemTime(&ARD12.Time);
+	RealTimeToYYTime(&ARD12.Time, &YYTime);
+	YYTime.Report = 0;
+	YYTime.Ack = 0;
+	DataLen = sizeof(ARD12Struct);
+	NAND_WriteAlarmRecord(NodeList[MeterIndex].Addr, AlarmDI, &YYTime, (u8*)&ARD12, &DataLen);
+	if(QCSG_CheckAlarmReport(AlarmDI) == TRUE) 
+	{
+		TerminalReportAlarmInc();
+	}
+	TerminalSetLastAlarmDI(AlarmDI);
+	return NO_ERROR;
+}
+
+ResultEnum GenerateProgramTimeChangeAlarm_E2000035(u32 MeterIndex, ThresholdParaStruct* Threshold)
+{	
+	ARD02Struct ARD02;
+	//MeasurePointStruct Mp;
+	RealTimeYYStruct YYTime;
+	AlarmAMRDataStruct* AlarmAMRDataNew = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_New;
+	AlarmAMRDataStruct* AlarmAMRDataOld = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_Old;
+	NodeListStruct* NodeList = (NodeListStruct*)ADDR_NodeList;
+	u32 AlarmDI = 0, DataLen = 0, Old = 0, New = 0;
+
+	AlarmDI = 0xE2000035;
+	if(QCSG_CheckAlarmConfig(AlarmDI) == FALSE) return ERROR_WRONG_ACCESS;
+	if(MeterIndex > MAX_PN_NUM) return ERROR_WRONG_ACCESS;
+	MR((u32)&New, (u32)AlarmAMRDataNew[MeterIndex].DI_03300000, 3);
+	MR((u32)&Old, (u32)AlarmAMRDataOld[MeterIndex].DI_03300000, 3);
+	
+	if(New == Old) return ERROR_WRONG_ACCESS;
+	
+	MC(0xFF, (u32)&ARD02, sizeof(ARD02Struct));	
+	MR((u32)ARD02.C_00010000, (u32)AlarmAMRDataNew[MeterIndex].DI_00010000, 4);
+	MR((u32)ARD02.C_00020000, (u32)AlarmAMRDataNew[MeterIndex].DI_00020000, 4);
+	MR((u32)ARD02.C_00030000, (u32)AlarmAMRDataNew[MeterIndex].DI_00030000, 4);
+	MR((u32)ARD02.C_00040000, (u32)AlarmAMRDataNew[MeterIndex].DI_00040000, 4);
+	MR((u32)ARD02.C_0201FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0201FF00, 6);
+	MR((u32)ARD02.C_0202FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0202FF00, 9);
+	MR((u32)ARD02.C_0203FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0203FF00, 12);
+	MR((u32)ARD02.C_0204FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0204FF00, 12);
+	MR((u32)ARD02.C_0206FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0206FF00, 8);
+	ARD02.State = 0x01;
+	ARD02.ReportState = 0;
+	HAL_GetSystemTime(&ARD02.Time);
+	RealTimeToYYTime(&ARD02.Time, &YYTime);
+	YYTime.Report = 0;
+	YYTime.Ack = 0;
+	DataLen = sizeof(ARD02Struct);
+	NAND_WriteAlarmRecord(NodeList[MeterIndex].Addr, AlarmDI, &YYTime, (u8*)&ARD02, &DataLen);
+	if(QCSG_CheckAlarmReport(AlarmDI) == TRUE) 
+	{
+		TerminalReportAlarmInc();
+	}
+	TerminalSetLastAlarmDI(AlarmDI);
+	return NO_ERROR;
+}
+
+ResultEnum GenerateTimeRateChangeAlarm_E2000036(u32 MeterIndex, ThresholdParaStruct* Threshold)
+{	
+	ARD01Struct ARD01;
+	//MeasurePointStruct Mp;
+	RealTimeYYStruct YYTime;
+	AlarmAMRDataStruct* AlarmAMRDataNew = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_New;
+	AlarmAMRDataStruct* AlarmAMRDataOld = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_Old;
+	NodeListStruct* NodeList = (NodeListStruct*)ADDR_NodeList;
+	u32 AlarmDI = 0, DataLen = 0, Old = 0, New = 0;
+
+	AlarmDI = 0xE2000036;
+	if(QCSG_CheckAlarmConfig(AlarmDI) == FALSE) return ERROR_WRONG_ACCESS;
+	if(MeterIndex > MAX_PN_NUM) return ERROR_WRONG_ACCESS;
+	MR((u32)&New, (u32)AlarmAMRDataNew[MeterIndex].DI_03300500, 3);
+	MR((u32)&Old, (u32)AlarmAMRDataOld[MeterIndex].DI_03300500, 3);
+	
+	if(New == Old) return ERROR_WRONG_ACCESS;
+	
+	MC(0xFF, (u32)&ARD01, sizeof(ARD01Struct));	
+	ARD01.State = 0x01;
+	ARD01.ReportState = 0;
+	HAL_GetSystemTime(&ARD01.Time);
+	RealTimeToYYTime(&ARD01.Time, &YYTime);
+	YYTime.Report = 0;
+	YYTime.Ack = 0;
+	DataLen = sizeof(ARD01Struct);
+	NAND_WriteAlarmRecord(NodeList[MeterIndex].Addr, AlarmDI, &YYTime, (u8*)&ARD01, &DataLen);
+	if(QCSG_CheckAlarmReport(AlarmDI) == TRUE) 
+	{
+		TerminalReportAlarmInc();
+	}
+	TerminalSetLastAlarmDI(AlarmDI);
+	return NO_ERROR;
+}
+
+ResultEnum GenerateLessMoneyAlarm_E200002B(u32 MeterIndex, ThresholdParaStruct* Threshold)
+{	
+	ARD04Struct ARD04;
+	//MeasurePointStruct Mp;
+	RealTimeYYStruct YYTime;
+	AlarmAMRDataStruct* AlarmAMRDataNew = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_New;
+	AlarmAMRDataStruct* AlarmAMRDataOld = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_Old;
+	NodeListStruct* NodeList = (NodeListStruct*)ADDR_NodeList;
+	u32 AlarmDI = 0, DataLen = 0, LeftMoney = 0;
+
+	AlarmDI = 0xE200002B;
+	if(QCSG_CheckAlarmConfig(AlarmDI) == FALSE) return ERROR_WRONG_ACCESS;
+	if(MeterIndex > MAX_PN_NUM) return ERROR_WRONG_ACCESS;
+	MR((u32)&LeftMoney, (u32)AlarmAMRDataNew[MeterIndex].DI_00900200, 4);
+	if(LeftMoney >= Threshold->E000018B)
+	{
+		//MC(0xFF, (u32)&ARD04, sizeof(ARD04Struct));
+		//if((AlarmAMRDataOld[MeterIndex].AlarmFlag & ALAMR_FLAG_LESS_MONEY_E200002B) == 0) return ERROR_WRONG_ACCESS;
+		AlarmAMRDataOld[MeterIndex].AlarmFlag &= ~ALAMR_FLAG_LESS_MONEY_E200002B;
+		//ARD04.State = 0x00;
+		return ERROR_WRONG_ACCESS;
+	}
+	else
+	{
+		if((AlarmAMRDataOld[MeterIndex].AlarmFlag & ALAMR_FLAG_LESS_MONEY_E200002B) != 0) return ERROR_WRONG_ACCESS;
+		AlarmAMRDataOld[MeterIndex].AlarmFlag |= ALAMR_FLAG_LESS_MONEY_E200002B;
+		MC(0xFF, (u32)&ARD04, sizeof(ARD04Struct));
+		ARD04.State = 0x01;	
+	}
+		
+	MR((u32)ARD04.C_00010000, (u32)AlarmAMRDataNew[MeterIndex].DI_00010000, 4);
+	MR((u32)ARD04.C_00020000, (u32)AlarmAMRDataNew[MeterIndex].DI_00020000, 4);
+	MR((u32)ARD04.C_00030000, (u32)AlarmAMRDataNew[MeterIndex].DI_00030000, 4);
+	MR((u32)ARD04.C_00040000, (u32)AlarmAMRDataNew[MeterIndex].DI_00040000, 4);
+	MR((u32)ARD04.C_E1000008, (u32)AlarmAMRDataNew[MeterIndex].DI_00900200, 4);
+	
+	ARD04.ReportState = 0;
+	HAL_GetSystemTime(&ARD04.Time);
+	RealTimeToYYTime(&ARD04.Time, &YYTime);
+	YYTime.Report = 0;
+	YYTime.Ack = 0;
+	DataLen = sizeof(ARD04Struct);
+	NAND_WriteAlarmRecord(NodeList[MeterIndex].Addr, AlarmDI, &YYTime, (u8*)&ARD04, &DataLen);
+	if(QCSG_CheckAlarmReport(AlarmDI) == TRUE) 
+	{
+		TerminalReportAlarmInc();
+	}
+	TerminalSetLastAlarmDI(AlarmDI);
+	return NO_ERROR;
+}
+
+ResultEnum GeneratePowerStopAlarm_E200002E(u32 MeterIndex, ThresholdParaStruct* Threshold)
+{	
+	ARD02Struct ARD02;
+	//MeasurePointStruct Mp;
+	RealTimeYYStruct YYTime;
+	AlarmAMRDataStruct* AlarmAMRDataNew = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_New;
+	AlarmAMRDataStruct* AlarmAMRDataOld = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_Old;
+	NodeListStruct* NodeList = (NodeListStruct*)ADDR_NodeList;
+	u32 OldPower = 0, NewPower = 0, AlarmDI = 0, DataLen = 0, PowerSecond = 0;
+	u32 ThresholdPower = 0, CaculatePower = 0;
+
+	AlarmDI = 0xE200002E;
+	if(QCSG_CheckAlarmConfig(AlarmDI) == FALSE) return ERROR_WRONG_ACCESS;
+	if(MeterIndex > MAX_PN_NUM) return ERROR_WRONG_ACCESS;
+	MR((u32)&NewPower, (u32)AlarmAMRDataNew[MeterIndex].DI_0203FF00, 3);
+	if(NewPower == 0) 
+	{
+		AlarmAMRDataOld[MeterIndex].PowerNoneZeroStartSecond = 0;
+		AlarmAMRDataOld[MeterIndex].AlarmFlag &= ~ALAMR_FLAG_POWER_STOP_E200002E;
+		return ERROR_WRONG_ACCESS;
+	}
+	if(AlarmAMRDataOld[MeterIndex].PowerNoneZeroStartSecond == 0)
+	{
+		AlarmAMRDataOld[MeterIndex].PowerNoneZeroStartSecond = HAL_GetSystemSecond();
+		return ERROR_WRONG_ACCESS;
+	}
+
+	NewPower = 0;
+	MR((u32)&NewPower, (u32)AlarmAMRDataNew[MeterIndex].DI_00010000, 4);
+	MR((u32)&OldPower, (u32)AlarmAMRDataOld[MeterIndex].DI_00010000, 4);
+	if(NewPower != OldPower) 
+	{
+		//MC(0xFF, (u32)&ARD02, sizeof(ARD02Struct));
+		//if((AlarmAMRDataOld[MeterIndex].AlarmFlag & ALAMR_FLAG_POWER_STOP_E200002E) == 0) return ERROR_WRONG_ACCESS;
+		AlarmAMRDataOld[MeterIndex].AlarmFlag &= ~ALAMR_FLAG_POWER_STOP_E200002E;
+		//ARD02.State = 0x00;
+		return ERROR_WRONG_ACCESS;
+	}
+	else
+	{
+		if((AlarmAMRDataOld[MeterIndex].AlarmFlag & ALAMR_FLAG_POWER_STOP_E200002E) != 0) return ERROR_WRONG_ACCESS;
+		NewPower = 0;
+		MC(0xFF, (u32)&ARD02, sizeof(ARD02Struct));
+		MR((u32)&NewPower, (u32)AlarmAMRDataNew[MeterIndex].DI_0203FF00, 3);
+		NewPower = bcd_hex(NewPower);
+		ThresholdPower = bcd_hex(Threshold->E000018A);
+		if(ThresholdPower == 0) ThresholdPower = 10;
+		PowerSecond = HAL_GetSystemSecond();
+		PowerSecond -= AlarmAMRDataOld[MeterIndex].PowerNoneZeroStartSecond;
+		CaculatePower = (NewPower * PowerSecond)/3600;
+		if(CaculatePower < ThresholdPower) return ERROR_WRONG_ACCESS;
+		AlarmAMRDataOld[MeterIndex].PowerNoneZeroStartSecond = 0;	//本次停走告警产生后，下次需要重新计时
+		AlarmAMRDataOld[MeterIndex].AlarmFlag |= ALAMR_FLAG_POWER_STOP_E200002E;
+		ARD02.State = 0x01;
+	}
+		
+	MR((u32)ARD02.C_00010000, (u32)AlarmAMRDataNew[MeterIndex].DI_00010000, 4);
+	MR((u32)ARD02.C_00020000, (u32)AlarmAMRDataNew[MeterIndex].DI_00020000, 4);
+	MR((u32)ARD02.C_00030000, (u32)AlarmAMRDataNew[MeterIndex].DI_00030000, 4);
+	MR((u32)ARD02.C_00040000, (u32)AlarmAMRDataNew[MeterIndex].DI_00040000, 4);
+	MR((u32)ARD02.C_0201FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0201FF00, 6);
+	MR((u32)ARD02.C_0202FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0202FF00, 9);
+	MR((u32)ARD02.C_0203FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0203FF00, 12);
+	MR((u32)ARD02.C_0204FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0204FF00, 12);
+	MR((u32)ARD02.C_0206FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0206FF00, 8);
+
+	ARD02.ReportState = 0;
+	HAL_GetSystemTime(&ARD02.Time);
+	RealTimeToYYTime(&ARD02.Time, &YYTime);
+	YYTime.Report = 0;
+	YYTime.Ack = 0;
+	DataLen = sizeof(ARD02Struct);
+	NAND_WriteAlarmRecord(NodeList[MeterIndex].Addr, AlarmDI, &YYTime, (u8*)&ARD02, &DataLen);
+	if(QCSG_CheckAlarmReport(AlarmDI) == TRUE) 
+	{
+		TerminalReportAlarmInc();
+	}
+	TerminalSetLastAlarmDI(AlarmDI);
+	return NO_ERROR;
+}
+
+ResultEnum GeneratePowerGoDownAlarm_E200002C(u32 MeterIndex)
+{	
+	ARD03Struct ARD03;
+	//MeasurePointStruct Mp;
+	RealTimeYYStruct YYTime;
+	AlarmAMRDataStruct* AlarmAMRDataNew = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_New;
+	AlarmAMRDataStruct* AlarmAMRDataOld = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_Old;
+	NodeListStruct* NodeList = (NodeListStruct*)ADDR_NodeList;
+	u32 OldPower = 0, NewPower = 0, AlarmDI = 0, DataLen = 0;
+
+	AlarmDI = 0xE200002C;
+	if(QCSG_CheckAlarmConfig(AlarmDI) == FALSE) return ERROR_WRONG_ACCESS;
+	if(MeterIndex > MAX_PN_NUM) return ERROR_WRONG_ACCESS;
+	
+	MR((u32)&OldPower, (u32)AlarmAMRDataOld[MeterIndex].DI_00010000, 4);
+	MR((u32)&NewPower, (u32)AlarmAMRDataNew[MeterIndex].DI_00010000, 4);
+
+	if(NewPower >= OldPower)
+	{
+		MR((u32)&OldPower, (u32)AlarmAMRDataOld[MeterIndex].DI_00020000, 4);
+		MR((u32)&NewPower, (u32)AlarmAMRDataNew[MeterIndex].DI_00020000, 4);
+	}
+	if(NewPower >= OldPower)
+	{
+		//MC(0xFF, (u32)&ARD03, sizeof(ARD03Struct));
+		//if((AlarmAMRDataOld[MeterIndex].AlarmFlag & ALAMR_FLAG_POWER_GO_DOWN_E200002C) == 0) return ERROR_WRONG_ACCESS;
+		AlarmAMRDataOld[MeterIndex].AlarmFlag &= ~ALAMR_FLAG_POWER_GO_DOWN_E200002C;
+		//ARD03.State = 0x00;
+		return ERROR_WRONG_ACCESS;
+	}
+	else
+	{
+		if((AlarmAMRDataOld[MeterIndex].AlarmFlag & ALAMR_FLAG_POWER_GO_DOWN_E200002C) != 0) return ERROR_WRONG_ACCESS;
+		MC(0xFF, (u32)&ARD03, sizeof(ARD03Struct));
+		AlarmAMRDataOld[MeterIndex].AlarmFlag |= ALAMR_FLAG_POWER_GO_DOWN_E200002C;
+		AlarmAMRDataOld[MeterIndex].PowerNoneZeroStartSecond = 0; //电能表示度下降告警与停走告警互斥，不能同时产生
+		ARD03.State = 0x01;
+	}
+	
+	MR((u32)ARD03.B_00010000, (u32)AlarmAMRDataOld[MeterIndex].DI_00010000, 4);
+	MR((u32)ARD03.B_00020000, (u32)AlarmAMRDataOld[MeterIndex].DI_00020000, 4);
+	MR((u32)ARD03.B_00030000, (u32)AlarmAMRDataOld[MeterIndex].DI_00030000, 4);
+	MR((u32)ARD03.B_00040000, (u32)AlarmAMRDataOld[MeterIndex].DI_00040000, 4);
+	MR((u32)ARD03.B_0201FF00, (u32)AlarmAMRDataOld[MeterIndex].DI_0201FF00, 6);
+	MR((u32)ARD03.B_0202FF00, (u32)AlarmAMRDataOld[MeterIndex].DI_0202FF00, 9);
+	MR((u32)ARD03.B_0203FF00, (u32)AlarmAMRDataOld[MeterIndex].DI_0203FF00, 12);
+	MR((u32)ARD03.B_0204FF00, (u32)AlarmAMRDataOld[MeterIndex].DI_0204FF00, 12);
+
+	MR((u32)ARD03.A_00010000, (u32)AlarmAMRDataNew[MeterIndex].DI_00010000, 4);
+	MR((u32)ARD03.A_00020000, (u32)AlarmAMRDataNew[MeterIndex].DI_00020000, 4);
+	MR((u32)ARD03.A_00030000, (u32)AlarmAMRDataNew[MeterIndex].DI_00030000, 4);
+	MR((u32)ARD03.A_00040000, (u32)AlarmAMRDataNew[MeterIndex].DI_00040000, 4);
+	MR((u32)ARD03.A_0201FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0201FF00, 6);
+	MR((u32)ARD03.A_0202FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0202FF00, 9);
+	MR((u32)ARD03.A_0203FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0203FF00, 12);
+	MR((u32)ARD03.A_0204FF00, (u32)AlarmAMRDataNew[MeterIndex].DI_0204FF00, 12);
+
+	ARD03.ReportState = 0;
+	HAL_GetSystemTime(&ARD03.Time);
+	RealTimeToYYTime(&ARD03.Time, &YYTime);
+	YYTime.Report = 0;
+	YYTime.Ack = 0;
+	DataLen = sizeof(ARD03Struct);
+	NAND_WriteAlarmRecord(NodeList[MeterIndex].Addr, AlarmDI, &YYTime, (u8*)&ARD03, &DataLen);
+	if(QCSG_CheckAlarmReport(AlarmDI) == TRUE) 
+	{
+		TerminalReportAlarmInc();
+	}
+	TerminalSetLastAlarmDI(AlarmDI);
+	return NO_ERROR;
+}
+
+ResultEnum GenerateTerminalGPRSRxTxByteAlarm_E200003A(void)
+{	
+	ARD10Struct ARD10;
+	//MeasurePointStruct Mp;
+	RealTimeYYStruct YYTime;
+	ThresholdParaStruct Threshold;
+	AlarmAMRDataStruct* AlarmAMRDataOld = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_Old;
+	NodeListStruct* NodeList = (NodeListStruct*)ADDR_NodeList;
+	u32 AlarmDI = 0, DataLen = 0, RxTxBytes = 0;
+
+	MR((u32)&Threshold, ADDR_ThresholdPara, sizeof(ThresholdParaStruct));
+	if(Threshold.E000018C == 0) return ERROR_WRONG_ACCESS;
+	if((AlarmAMRDataOld[0].AlarmFlag & ALAMR_FLAG_GPRS_RX_TX_BYTES_E200003A) != 0) return ERROR_WRONG_ACCESS;
+	
+	AlarmDI = 0xE200003A;
+	if(QCSG_CheckAlarmConfig(AlarmDI) == FALSE) return ERROR_WRONG_ACCESS;
+	RxTxBytes = Get_GPRSCurMonthRxTxBytes();
+	if(RxTxBytes <= Threshold.E000018C) return ERROR_WRONG_ACCESS;	
+
+	AlarmAMRDataOld[0].AlarmFlag |= ALAMR_FLAG_GPRS_RX_TX_BYTES_E200003A;
+	MC(0, (u32)&ARD10, sizeof(ARD10Struct));
+	MR((u32)ARD10.C_E1800013, (u32)&RxTxBytes, 3);
+	ARD10.State = 0x01;
+	ARD10.ReportState = 0;
+	HAL_GetSystemTime(&ARD10.Time);
+	RealTimeToYYTime(&ARD10.Time, &YYTime);
+	YYTime.Report = 0;
+	YYTime.Ack = 0;
+	DataLen = sizeof(ARD10Struct);
+	NAND_WriteAlarmRecord(NodeList[0].Addr, AlarmDI, &YYTime, (u8*)&ARD10, &DataLen);
+	if(QCSG_CheckAlarmReport(AlarmDI) == TRUE) 
+	{
+		TerminalReportAlarmInc();
+	}
+	TerminalSetLastAlarmDI(AlarmDI);
+	return NO_ERROR;
+}
+
+
+ResultEnum GenerateTerminalPowerUpAndDownAlarm(RealTimeStruct* PowerTime, u32 PowerType)
+{
+	ARD02Struct PowerAlarm;
+	MeasurePointStruct Mp;
+	RealTimeYYStruct YYTime;
+	#if((Project/100)==3)
+		u8* pData = NULL;
+	#endif
+	u32 DataLen = 0;
+	u32 PowerAlarmDI = 0;
+
+	if(PowerType == 0)
+	{
+		PowerAlarmDI = 0xE2000033;		// 终端掉电告警
+	}
+	else
+	{
+		PowerAlarmDI = 0xE2000034;		// 终端上电电告警
+	}
+
+	if(QCSG_CheckAlarmConfig(PowerAlarmDI) == FALSE) return ERROR_WRONG_ACCESS;
+	
+	MC(0xFF, (u32)&PowerAlarm, sizeof(ARD02Struct));	
+	PowerAlarm.State = ALARM_OCCUR;
+	PowerAlarm.ReportState = 0;
+	MR((u32)&PowerAlarm.Time, (u32)PowerTime, sizeof(RealTimeStruct));
+	RealTimeToYYTime(PowerTime, &YYTime);
+	YYTime.Report = 0;
+	YYTime.Ack = 0;
+	
+	#if((Project/100)==3)
+		MR((u32)PowerAlarm.C_00010000, ADDR_00010000L, 4);
+		MR((u32)PowerAlarm.C_00020000, ADDR_00020000L, 4);
+		MR((u32)PowerAlarm.C_00030000, ADDR_00030000L, 4);
+		MR((u32)PowerAlarm.C_00040000, ADDR_00040000L, 4);
+
+		MC(0xFF, (u32)PowerAlarm.C_0201FF00, SIZE_20);
+		pData = (u8*)ADDR_UA;
+		DataLen = 0;
+		PowerAlarm.C_0201FF00[DataLen++] = pData[2];
+		PowerAlarm.C_0201FF00[DataLen++] = pData[3];
+		pData = (u8*)ADDR_UB;
+		PowerAlarm.C_0201FF00[DataLen++] = pData[2];
+		PowerAlarm.C_0201FF00[DataLen++] = pData[3];
+		pData = (u8*)ADDR_UC;
+		PowerAlarm.C_0201FF00[DataLen++] = pData[2];
+		PowerAlarm.C_0201FF00[DataLen++] = pData[3];
+
+		MC(0xFF, (u32)PowerAlarm.C_0202FF00, SIZE_20);
+		pData = (u8*)ADDR_IA;
+		DataLen = 0;
+		PowerAlarm.C_0202FF00[DataLen++] = pData[1];
+		PowerAlarm.C_0202FF00[DataLen++] = pData[2];
+		PowerAlarm.C_0202FF00[DataLen++] = pData[3];
+		pData = (u8*)ADDR_IB;
+		PowerAlarm.C_0202FF00[DataLen++] = pData[1];
+		PowerAlarm.C_0202FF00[DataLen++] = pData[2];
+		PowerAlarm.C_0202FF00[DataLen++] = pData[3];
+		pData = (u8*)ADDR_IC;
+		PowerAlarm.C_0202FF00[DataLen++] = pData[1];
+		PowerAlarm.C_0202FF00[DataLen++] = pData[2];
+		PowerAlarm.C_0202FF00[DataLen++] = pData[3];
+
+		pData = (u8*)ADDR_PT;
+		MR((u32)PowerAlarm.C_0203FF00, (u32)pData, SIZE_12);
+		pData = (u8*)ADDR_QT;
+		MR((u32)PowerAlarm.C_0204FF00, (u32)pData, SIZE_12);
+		pData = (u8*)ADDR_COST;
+		MR((u32)PowerAlarm.C_0206FF00, (u32)pData, SIZE_8);
+	#endif
+	
+	NAND_ReadMeasurePointByPn(0, &Mp);
+	DataLen = sizeof(ARD02Struct);
+	NAND_WriteAlarmRecord(Mp.Addr, PowerAlarmDI, &YYTime, (u8*)&PowerAlarm, &DataLen);
+	if(QCSG_CheckAlarmReport(PowerAlarmDI) == TRUE) 
+	{
+		TerminalReportAlarmInc();
+	}
+	TerminalSetLastAlarmDI(PowerAlarmDI);
+	return NO_ERROR;
+}
+
+ResultEnum GenerateParaChangeEvent(u32 DI)
+{
+	MeasurePointStruct Mp;
+	ERD08Struct ERD08;
+	RealTimeYYStruct YYTime;
+	u32 DataLen = 0;
+	u32 ParaChangeDI = 0xE2010014;
+
+	if(QCSG_CheckEventMask(ParaChangeDI) == FALSE) return ERROR_WRONG_ACCESS;
+	ERD08.DI = DI;
+	HAL_GetSystemTime(&ERD08.Time);
+	RealTimeToYYTime(&ERD08.Time, &YYTime);
+	YYTime.Report = 0;
+	YYTime.Ack = 0;
+	NAND_ReadMeasurePointByPn(0, &Mp);
+	DataLen = sizeof(ERD08Struct);
+	NAND_WriteEventRecord(Mp.Addr, ParaChangeDI, &YYTime, (u8*)&ERD08, &DataLen);
+	return NO_ERROR;
+}
+
+ResultEnum GeneratePowerEvent(RealTimeStruct* PowerUpTime, RealTimeStruct* PowerDownTime)
+{
+	ERD04Struct PowerEvent;
+	MeasurePointStruct Mp;
+	RealTimeYYStruct YYTime;
+	u32 DataLen = 0;
+	u32 PowerEventDI = 0xE201000A;
+	if(QCSG_CheckEventMask(PowerEventDI) == FALSE) return ERROR_WRONG_ACCESS;
+
+	MR((u32)&PowerEvent.PowerUpTime, (u32)PowerUpTime, sizeof(RealTimeStruct));
+	MR((u32)&PowerEvent.PowerDownTime, (u32)PowerDownTime, sizeof(RealTimeStruct));
+	RealTimeToYYTime(PowerUpTime, &YYTime);
+	YYTime.Report = 0;
+	YYTime.Ack = 0;
+	NAND_ReadMeasurePointByPn(0, &Mp);
+	DataLen = sizeof(ERD04Struct);
+	NAND_WriteEventRecord(Mp.Addr, PowerEventDI, &YYTime, (u8*)&PowerEvent, &DataLen);
+	return NO_ERROR;
+}
+
+ResultEnum GenerateMpControlEvent(u32 ControlType, MeasurePointStruct* Mp, u32 Pn, u32 Time)
+{
+	ERD06Struct ERD06;
+	RealTimeYYStruct YYTime;
+	u32 PnNum = 0;
+	u32 DataLen = 0;
+	u32 MpControlDI = 0xE201000E;
+	AlarmAMRDataStruct* AlarmAMRDataOld = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_Old;
+	
+	if(QCSG_CheckEventMask(MpControlDI) == FALSE) return ERROR_WRONG_ACCESS;
+	HAL_GetSystemTime(&ERD06.Time);
+	RealTimeToYYTime(&ERD06.Time, &YYTime);
+	YYTime.Report = 0;
+	YYTime.Ack = 0;
+	ERD06.Type = ControlType;
+	PnNum = SwitchPnToNum(Pn);
+	MR((u32)ERD06.C_00010000, (u32)AlarmAMRDataOld[PnNum].DI_00010000, SIZE_4);
+	MR((u32)ERD06.C_00020000, (u32)AlarmAMRDataOld[PnNum].DI_00020000, SIZE_4);
+	DataLen = sizeof(ERD06Struct);
+	NAND_WriteEventRecord(Mp->Addr, MpControlDI, &YYTime, (u8*)&ERD06, &DataLen);
+	if((ControlType == METER_CONTROL_SWITCH_ON) || (ControlType == METER_CONTROL_SWITCH_OFF))
+	{
+		AlarmAMRDataOld[PnNum].MeterControlStartSecond = HAL_GetSystemSecond();
+		AlarmAMRDataOld[PnNum].MeterControlLastSecond = Time * 60;
+		AlarmAMRDataOld[PnNum].MeterControlType = ControlType;
+	}	
+	return NO_ERROR;
+}
+
+void ClearNodeAlarmFlag(void)
+{
+	u32 i = 0;
+	AlarmAMRDataStruct* AlarmAMRDataOld = (AlarmAMRDataStruct*)ADDR_AlarmTaskAMRDataBuf_Old;
+
+	for(i = 0; i < MAX_PN_NUM; i++)
+	{
+		AlarmAMRDataOld[i].AlarmFlag = 0;
+	}
+}
+
+/************************ (C) COPYRIGHT zhaoyun***********************END OF FILE****/
+
+

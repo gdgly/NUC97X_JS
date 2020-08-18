@@ -1,0 +1,713 @@
+
+
+#include "../Hcsg/ProjectCSG.h"
+#include "../MS/MS.h"
+
+#include "../QCSG_Head/QCSG_UpLinkProtocol.h"
+#include "../QCSG_Head/QCSG_LocalLinkProtocol.h"
+#include "../QCSG_Head/QCSG_DLT645_Protocol.h"
+#include "../QCSG_Head/Chint_Type.h"
+#include "../QCSG_Head/QCSG_PublicDefine.h"
+#include "../QCSG_Head/QCSG_PublicFunc.h"
+#include "../QCSG_Head/QCSG_Table.h"
+#include "../QCSG_Head/QCSG_Resolve.h"
+#include "../QCSG_Data/QCSG_DefaultData.h"
+#include "../QCSG_Data/QCSG_NandDataInterface.h"
+#include "../QCSG_Uart/TerminalQCSG_Uart_Manage.h"
+#include "../STM32F4xx/STM32F4xx_IO.h"
+#include "../STM32F4xx/STM32F4xx_WDG.h"
+#include "../STM32F4xx/STM32F4xx_UART.h"
+#include "../STM32F4xx/STM32F4xx_PWR.h"
+#include "../STM32F4xx/STM32F4xx_WDG.h"
+#include "../STM32F4xx/STM32F4xx_FMC.h"
+#include "../STM32F4xx/STM32F4xx_CRC.h"
+#include "../STM32F4xx/STM32F4xx_ExtMem.h"
+
+#include "../Display/Display.h"
+#include "../Display/DisplayLoop_ICO.h"
+#include "../Display/DisplayError.h"
+#include "../Display/DisplayFTP.h"
+#include "../Display/DisplayLoop.h"
+#include "../Device/MEMRW.h"
+#include "Terminal_PowerDown.h"
+#include "Terminal_Init.h"
+#include "Terminal_Timer.h"
+#include "../QCSG_Head/ReadMeter_Task.h"
+#include "../QCSG_Head/CH_AMR_TaskManage.h"
+#include "../QCSG_Head/CH_PLC_AMR_Task.h" 
+#include "../QCSG_Head/CH_RS485_AMR_Task.h" 
+#include "../QCSG_Head/QCSG_Hal.h"
+#include "../QCSG_Head/QCSG_Ctrl.h"
+#include "../QCSG_Head/QCSG_AlarmEvent.h"
+#include "../Test/Test_RAM.h"
+#include "Terminal_Task.h"
+#include "../Calculate/Calculate.h"
+
+
+void SdramTest(void);
+void Terminal_RunTimeProcess(void);
+
+void ACTION_RESET(void);		//复位命令操作
+
+uint32_t SystemCoreClock = 16000000;	//仅stm32f4xx_hal_rcc.c文件编译时需要,link时不需要
+
+void _0(void)
+{
+}
+
+
+void ACTION_RESET(void)//复位命令操作
+{
+	u32 PORTn;
+	UARTCtrl_TypeDef * UARTCtrl;
+	
+	if(Comm_Ram->RESET != 0x55)//0x55=重启动(立即使用看门狗复位)
+	{
+		return;
+	}
+	PORTn = Comm_Ram->ACTION_RESET_PORTn;//操作复位的通信端口号
+	switch(PORTn)
+	{
+		case RS232PORT:				// 0//RS232
+		case GPRSPORT:				// 1//GPRS
+		case RS485_1PORT:			// 2//RS485_1通信口号
+		case RS485_2PORT:			// 3//RS485-2通信口号
+		case RS485_3PORT:			// 5//RS485_3通信口号(WI-FI)
+		case IRPORT:				// 6//红外通信口号
+		case ENETPORT:				// 10//以太网通信口号
+		case SMSPORT:				// 11//短信通信口号
+			UARTCtrl = (UARTCtrl_TypeDef *)Get_ADDR_UARTnCtrl(PORTn);
+			if(UARTCtrl->Task != 0)
+			{// 0=正在接收
+				return;
+			}
+	}
+	//延时等待最后字节发送
+	Comm_Ram->GPMSTimer = 500/10;	// 18 通用(兼虚拟UART11) 每10MS减1定时器
+	while(Comm_Ram->GPMSTimer)
+	{
+	}
+	WWDT_RESET();//立即使能看门狗复位
+}
+
+void SdramTest(void)
+{
+	u32* p32;
+	if(RAM_Test(ADDR_128KDATABUFF,64))
+	{
+		Comm_Ram->GPMSTimer=1000/10;		//18 通用(兼虚拟UART11) 每10MS减1定时器
+		while(1)
+		{
+			Init_ExtMem();					//sdram初始化
+			SDRAM_FMC_Init();
+			if(RAM_Test(ADDR_128KDATABUFF,64)==0)		//RAM测试;返回:0=正确,1=错误
+			{
+				break;
+			}
+			if(Comm_Ram->GPMSTimer==0)					//18 通用(兼虚拟UART11) 每10MS减1定时器
+			{
+				__disable_irq();
+				p32=(u32*)(ADDR_Meter_SaveRam_Start+LEN_SaveRam-8);
+				p32[0]=0x12345678;
+				p32[1]=RAM_CRC32(ADDR_Meter_SaveRam_Start,LEN_SaveRam-4);		//RAM中数据CRC32计算
+				RTC->BKP0R&=0xffff00ff;										//B8-B15 0x55=WWDT看门狗复位标志,其他值为引脚等复位
+				RTC->BKP0R|=0x5500;
+				//	RCC->CSR|=1;//LSI RC 振荡器开启
+				while(IWDG->SR!=0)
+				{
+				}
+				IWDG->KR=0x5555;
+				IWDG->PR=0;	// 4 分频
+				IWDG->RLR=1;
+				IWDG->KR=0xAAAA;
+				IWDG->KR=0xCCCC;
+				while(1);
+			}
+		}
+	}
+}
+
+void Terminal_RunTimeProcess(void)
+{
+	CommunicationParaStruct CommPara;
+	UARTCtrl_TypeDef* UartCtrl;
+	u32 TimeSub[4];
+	u32 i = 0;
+	TerminalRunTimeCtrlStruct* pTSysCtrl = (TerminalRunTimeCtrlStruct*)ADDR_Terminal_RunTime;
+	Terminal_Ram_TypeDef* pTerminalRam = Terminal_Ram;
+	Comm_Ram_TypeDef* pCommRam = Comm_Ram;
+	u8* pPowerDownTime = (u8*)ADDR_TFM_YMDHMS;		// 掉点前记录的时间
+
+	if(pTerminalRam->PowerDownTask != 0)
+	{												// 此处为清除休眠醒来后，保存的休眠状态，避免液晶屏熄灭前再次来电后休眠状态不变
+		pTSysCtrl->Flag |= TERMINAL_POWER_UP_FLAG;
+		pTerminalRam->PowerDownTask = 0;
+	}
+#if ((Project/100)==2)||((Project/100)==3)	
+	if(Pin_Read(PIN_PROKEY) == 0)
+	{
+		i = pTerminalRam->Ticks;
+		if((i - pTSysCtrl->ProKeyPressTick) > 10)
+		{
+			pTSysCtrl->ProKeyLastSeconds = PRO_KEY_HOLD_SECOND;
+			pTSysCtrl->Flag |= TERMINAL_PROKEY_PRESS_FLAG;
+			//HAL_BuzzerON(11, 18000);
+		}
+	}
+	else
+	{
+		pTSysCtrl->ProKeyPressTick = pTerminalRam->Ticks;
+	}
+#endif
+
+	if(pTSysCtrl->CheckSecond != pCommRam->RTCBuff[0])
+	{
+		pTSysCtrl->CheckSecond = pCommRam->RTCBuff[0];
+		if(pTSysCtrl->CurExeFileUpdateDelay > 0) pTSysCtrl->CurExeFileUpdateDelay--;
+		if(pTSysCtrl->ProKeyLastSeconds > 0) pTSysCtrl->ProKeyLastSeconds--;
+		if(pTSysCtrl->ProKeyLastSeconds == 0) pTSysCtrl->Flag &= ~TERMINAL_PROKEY_PRESS_FLAG;
+		
+		i = Get_GPRSRxTxBytes();
+		if(i != 0)
+		{
+			pTSysCtrl->GPRSRxTxBytes += i;
+			Clear_GPRSRxTxBytes();
+		}
+		#if ((Project/100)==2)
+			GetTerminalReadMeterFlag();
+		#endif
+		if((pTSysCtrl->Flag & TERMINAL_POWER_UP_FLAG) != 0)
+		{
+			pTSysCtrl->Flag &= ~TERMINAL_POWER_UP_FLAG;
+			MC(0, (u32)TimeSub, SIZE_16);
+			QCSG_TimerSub((TIME_PARAM_S*)pCommRam->MYMDHMS, (TIME_PARAM_S*)pPowerDownTime, TimeSub);
+			if((TimeSub[0] > 0x00) || (TimeSub[1] > 0x00) || (TimeSub[2] > 0x00))
+			{
+				GeneratePowerEvent((RealTimeStruct*)pCommRam->MYMDHMS, (RealTimeStruct*)pPowerDownTime);
+				if((pTSysCtrl->Flag & TERMINAL_POWER_DOWN_DONE_FLAG) == 0) 
+				{
+					GenerateTerminalPowerUpAndDownAlarm((RealTimeStruct*)pPowerDownTime, 0);
+				}
+				pTSysCtrl->Flag &= ~TERMINAL_POWER_DOWN_DONE_FLAG;
+				GenerateTerminalPowerUpAndDownAlarm((RealTimeStruct*)pCommRam->MYMDHMS, 1);
+			}
+			else
+			{
+				if(TimeSub[3] > 0x0A)
+				{
+					GeneratePowerEvent((RealTimeStruct*)pCommRam->MYMDHMS, (RealTimeStruct*)pPowerDownTime);
+				}
+			}
+			MR((u32)&i, ADDR_TerminalResetCnt, 4);
+			if(i > 0)
+			{
+				if((TimeSub[0] > 0x00) || (TimeSub[1] > 0x00) || (TimeSub[2] > 0x00) || (TimeSub[3] > 0x0A))
+				{
+					pTSysCtrl->DayPowerDownCnt++;
+					pTSysCtrl->DayPowerDownTime = TimeSub[0] * 24 * 60;
+					pTSysCtrl->DayPowerDownTime += TimeSub[1] * 60;
+					pTSysCtrl->DayPowerDownTime += TimeSub[2];
+
+					pTSysCtrl->MonthPowerDownCnt++;
+					pTSysCtrl->MonthPowerDownTime = TimeSub[0] * 24 * 60;
+					pTSysCtrl->MonthPowerDownTime += TimeSub[1] * 60;
+					pTSysCtrl->MonthPowerDownTime += TimeSub[2];
+	
+					MR((u32)&i, QCSG_POWER_DOWN_NUM_DAY, 4);
+					i++;
+					MW((u32)&i, QCSG_POWER_DOWN_NUM_DAY, 4);
+
+					MR((u32)&i, QCSG_POWER_DOWN_TIME_DAY, 4);
+					i += pTSysCtrl->DayPowerDownTime;
+					MW((u32)&i, QCSG_POWER_DOWN_TIME_DAY, 4);
+
+					MR((u32)&i, QCSG_POWER_DOWN_NUM_MONTH, 4);
+					i++;
+					MW((u32)&i, QCSG_POWER_DOWN_NUM_MONTH, 4);
+
+					MR((u32)&i, QCSG_POWER_DOWN_TIME_MONTH, 4);
+					i += pTSysCtrl->MonthPowerDownTime;
+					MW((u32)&i, QCSG_POWER_DOWN_TIME_MONTH, 4);
+				}		
+			}
+			else
+			{
+				pTSysCtrl->DayPowerDownCnt = 0;
+				pTSysCtrl->DayPowerDownTime = 0;
+				pTSysCtrl->MonthPowerDownCnt = 0;
+				pTSysCtrl->MonthPowerDownTime = 0;
+
+				MR(QCSG_POWER_DOWN_NUM_DAY, (u32)&pTSysCtrl->DayPowerDownCnt, 4);
+				MR(QCSG_POWER_DOWN_TIME_DAY, (u32)&pTSysCtrl->DayPowerDownTime, 4);
+				MR(QCSG_POWER_DOWN_NUM_MONTH, (u32)&pTSysCtrl->MonthPowerDownCnt, 4);
+				MR(QCSG_POWER_DOWN_TIME_MONTH, (u32)&pTSysCtrl->MonthPowerDownTime, 4);
+			}
+			TerminalReportCheckAlarm(pTSysCtrl);
+		}
+
+		if((pTSysCtrl->Flag & TERMINAL_ADDR_CHANGE_FLAG) != 0)
+		{
+			pTSysCtrl->Flag &= ~TERMINAL_ADDR_CHANGE_FLAG;
+			DataResetAction(0x02, pTSysCtrl->LastPORTn);
+		}
+
+		if((pTSysCtrl->Flag & TERMINAL_COMM_PARA_CHANGE_FLAG) != 0)
+		{
+			pTSysCtrl->Flag &= ~TERMINAL_COMM_PARA_CHANGE_FLAG;
+			UartCtrl = (UARTCtrl_TypeDef*)Get_ADDR_UARTnCtrl(GPRSPORT);
+			if(UartCtrl->LinkTask < 101)
+			{
+				UartCtrl->LinkTask = 1;
+			}
+			else
+			{
+				UartCtrl->LinkTask = 102;
+				pTerminalRam->GPRSHeartBeat_S_Timer = 0;
+			}
+			
+			UartCtrl = (UARTCtrl_TypeDef*)Get_ADDR_UARTnCtrl(ENETPORT);
+			if(UartCtrl->LinkTask < 101)
+			{
+				UartCtrl->LinkTask = 0;
+			}
+			else
+			{
+				UartCtrl->LinkTask = 102;
+				pTerminalRam->ENETHeartBeat_S_Timer = 0;
+			}		
+		}
+		
+		MW((u32)pCommRam->MYMDHMS, (u32)pPowerDownTime, 6);//掉电前时钟更新
+		pPowerDownTime[6] = 0x20;
+		SdramTest();
+		ACTION_RESET();
+		if((pTSysCtrl->CurExeFileReady == TERMINAL_EXE_FILE_READY) && (pTSysCtrl->CurExeFileUpdateDelay == 0) && (pTSysCtrl->CurExeFileType <= EXE_FILE_TYPE_PLC))
+		{
+			NAND_TerminalExeFileUpdate();
+		}
+/*
+		if(pTSysCtrl->LatelyAlarmNum != 0)
+		{
+			if((pTSysCtrl->CheckSecond & 0x01) != 0)
+			{
+				Pin_OutH(PIN_ATTR_LED);
+			}
+			else
+			{
+				Pin_OutL(PIN_ATTR_LED);
+			}
+		}
+		else
+		{
+			Pin_OutH(PIN_ATTR_LED);
+		}
+*/
+	}
+
+	if(pTSysCtrl->CheckMinute != pCommRam->RTCBuff[1])
+	{
+		pTSysCtrl->CheckMinute = pCommRam->RTCBuff[1];	
+		MR((u32)&CommPara, ADDR_CommunicationPara, sizeof(CommunicationParaStruct));
+		pTSysCtrl->TerminalAddr = CommPara.TerminalAddr;
+		pTSysCtrl->TerminalLocation = CommPara.TerminalLocationCode;
+		UartCtrl = (UARTCtrl_TypeDef*)Get_ADDR_UARTnCtrl(GPRSPORT);
+		UartCtrl->LinkCtrl = 1;
+		if((CommPara.MasterAddrType != MASTER_CH_TYPE_GPRS) && 
+		   (CommPara.MasterBackAddr1Type != MASTER_CH_TYPE_GPRS) &&
+		   (CommPara.MasterBackAddr2Type != MASTER_CH_TYPE_GPRS))
+		{
+			UartCtrl->LinkCtrl = 0;
+		}
+		i = UartCtrl->LINKCHECK_RTCD;
+		if((u8)i != pCommRam->RTCBuff[4])
+		{
+			UartCtrl->LINKCHECK_RTCD = pCommRam->RTCBuff[4];
+			UartCtrl->LinkCount = 0;
+		}
+
+		UartCtrl = (UARTCtrl_TypeDef*)Get_ADDR_UARTnCtrl(ENETPORT);
+		UartCtrl->LinkCtrl = 1;
+		if((CommPara.MasterAddrType != MASTER_CH_TYPE_ETHE) && 
+		   (CommPara.MasterBackAddr1Type != MASTER_CH_TYPE_ETHE) &&
+		   (CommPara.MasterBackAddr2Type != MASTER_CH_TYPE_ETHE))
+		{
+			UartCtrl->LinkCtrl = 0;
+		}
+		i = UartCtrl->LINKCHECK_RTCD;
+		if((u8)i != pCommRam->RTCBuff[4])
+		{
+			UartCtrl->LINKCHECK_RTCD = pCommRam->RTCBuff[4];
+			UartCtrl->LinkCount = 0;
+		}
+
+		GenerateTerminalGPRSRxTxByteAlarm_E200003A();
+	}
+
+	if(pTSysCtrl->CheckDay != pCommRam->RTCBuff[4])
+	{
+		pTSysCtrl->CheckDay = pCommRam->RTCBuff[4];
+		MR((u32)&i, ADDR_E1800013, 3);	
+		i = bcd_hex(i);
+		i += pTSysCtrl->GPRSRxTxBytes >> 10;	//流量单位: kb	
+		i = hex_bcd(i);
+		MW((u32)&i, ADDR_E1800013, 3);		
+		i = pTSysCtrl->GPRSRxTxBytes >> 10;
+		i = hex_bcd(i);
+		MW((u32)&i, ADDR_E1800012, 2);
+		pTSysCtrl->GPRSRxTxBytes = 0;
+
+		pTSysCtrl->DayPowerDownCnt = 0;
+		pTSysCtrl->DayPowerDownTime = 0;
+//		MR(QCSG_POWER_DOWN_NUM_DAY, (u32)&pTSysCtrl->DayPowerDownCnt, 4);
+//		MR(QCSG_POWER_DOWN_TIME_DAY, (u32)&pTSysCtrl->DayPowerDownTime, 4);
+		ClearNodeAlarmFlag();
+	}
+
+	if(pTSysCtrl->CheckMonth != pCommRam->RTCBuff[5])
+	{
+		pTSysCtrl->CheckMonth = pCommRam->RTCBuff[5];
+		MR((u32)&i, ADDR_E1800013, 3);
+		MW((u32)&i, ADDR_E1800014, 3);
+
+		MR((u32)&i, ADDR_E1800016, 2);
+		MW((u32)&i, ADDR_E1800017, 2);
+		i = 0;
+		MW((u32)&i, ADDR_E1800013, 3);
+		MW((u32)&i, ADDR_E1800016, 2);
+
+		pTSysCtrl->MonthPowerDownCnt = 0;
+		pTSysCtrl->MonthPowerDownTime = 0;
+//		MR(QCSG_POWER_DOWN_NUM_MONTH, (u32)&pTSysCtrl->MonthPowerDownCnt, 4);
+//		MR(QCSG_POWER_DOWN_TIME_MONTH, (u32)&pTSysCtrl->MonthPowerDownTime, 4);
+	}
+
+	if((pTSysCtrl->BuzzMode != 0) && (pTSysCtrl->BuzzOnTime != 0))
+	{
+		if((pTerminalRam->Ticks - pTSysCtrl->BuzzOnTick) > pTSysCtrl->BuzzOnTime)
+		{
+			HAL_BuzzerOFF(pTSysCtrl->BuzzMode);
+		}
+	}
+	if(pTerminalRam->Ticks > 600) pCommRam->DisplayAllErrorTimer = 0;
+}
+
+
+#if ((Project/100)==2)||((Project/100)==3)	
+void Terminal_Task(void)			// 分时任务(电网有电)
+{
+	Terminal_RunTimeProcess();
+	NAND_SyncMeasurePointToRam();
+
+	MultiFrameSendTask(RS232PORT);
+	MultiFrameSendTask(GPRSPORT);
+	MultiFrameSendTask(IRPORT);
+	MultiFrameSendTask(ENETPORT);
+	MultiFrameSendTask(RS485_1PORT);
+	MultiFrameSendTask(RS485_2PORT);
+	MultiFrameSendTask(RS485_3PORT);
+
+	TerminalReportTask(ENETPORT);
+	TerminalReportTask(GPRSPORT);
+	
+	#if ((Project/100)==3)
+		RD_Meter_Task();
+		QCSG_Ctrl_Task();
+	#endif
+	#if ((Project/100)==2)
+		AMRTaskManage();
+		RealTimeAMRTask();
+		PLC_ModuleManage(PLC_PORT);
+		CH_RS485_AMR_Task(RS485_1PORT);
+		CH_RS485_AMR_Task(RS485_2PORT);
+		CH_RS485_AMR_Task(RS485_3PORT);
+		MeterAlarmRecordGenerate();
+	#endif
+
+}
+#endif
+
+#if ((Project/100)==5)
+void Terminal_Task(void)			// 分时任务(电网有电)
+{
+	Terminal_RunTimeProcess();
+	NAND_SyncMeasurePointToRam();
+
+	MultiFrameSendTask(GPRSPORT);
+	MultiFrameSendTask(IRPORT);
+	MultiFrameSendTask(RS485_1PORT);
+	MultiFrameSendTask(RS485_2PORT);
+
+	TerminalReportTask(GPRSPORT);
+	
+	AMRTaskManage();
+	RealTimeAMRTask();
+	//PLC_ModuleManage(PLC_PORT);
+	CH_RS485_AMR_Task(RS485_1PORT);
+	CH_RS485_AMR_Task(RS485_2PORT);
+	MeterAlarmRecordGenerate();
+}
+#endif
+
+__asm void Call_E2(u32 r0)//调用E2菜单,入口R0=PC地址
+{
+	PUSH {LR}
+	LDR LR,=ADDR_SystemStack
+	STR SP,[LR]
+	CMP R0,#0
+	BNE Call_E2_1
+	LDR R0,=ADDR_Menu_ENTRY//E2入口地址
+	LDR R0,[R0,#(4*1)];
+Call_E2_1
+	LDR LR,=Call_E2_End
+	BX R0
+Call_E2_End
+	LDR LR,=ADDR_SystemStack
+	MOV R0,#0
+	STR R0,[LR]
+	POP {PC}
+	ALIGN
+}
+
+
+#if ((Project/100)==2)||((Project/100)==3)	
+
+void Terminal_DisplayTask(void)
+{
+	u32 i;
+	u32 * p32;
+	//u8 *p8;
+	
+	if(MenuCount->Count==0)//菜单堆栈计数
+  	{	//菜单堆栈计数=0
+    	if((Comm_Ram->ButtonVal&0x10)==0)
+    	{//无确认键按下，循显
+				if(Comm_Ram->DisplayScanTimer==0x0)
+				{
+					//点阵显示输出
+					if(DOTMIXPMODE->Task==0)
+					{//上电屏幕
+							DisplayClr();//清全屏
+							Startdisplay();
+							HAL_BuzzerON(BUZZ_MODE_00, 50);
+							Comm_Ram->DisplayScanTimer=30/10;							
+					}
+					else
+					{//其他屏幕
+						Comm_Ram->DisplayScanTimer=1100/10;
+					}
+					
+					if(((RTC->BKP0R&0xff)>=2)&&((RTC->BKP0R&0xff)<=4))//任务:0=空,1=等待插入,2=主机插入初始化等待,3=主机插入,4=主机拔出,5=主机结束,6=设备插入,7=设备拔出
+					{//USB文件完成标志有效
+						Comm_Ram->DisplayAllErrorTimer=0;
+						Comm_Ram->DisplayScanTimer=5000/10;
+						DOTMIXPMODE->Task=1;//当前显示任务:0=上电屏幕,1=USB下载显示,2=错误显示,3=菜单显示,4=循环显示
+						DOTMIXPMODE->Mix=0;//点阵缓冲A和B合成方式:0=A,1=B,2=A|B,3=A^B,4=A&B
+					}
+					else
+					{
+						i=MRR(ADDR_FTPFileFlags+4,1);
+						if((i<(MaxFileNum+3))&&(Comm_Ram->DisplayAllErrorTimer!=0))
+						{//FTP文件下载有效
+							DOTMIXPMODE->Task=1;//当前显示任务:0=上电屏幕,1=USB下载显示,2=错误显示,3=菜单显示,4=循环显示
+							DOTMIXPMODE->Mix=0;//点阵缓冲A和B合成方式:0=A,1=B,2=A|B,3=A^B,4=A&B
+							DisplayFTP();//FTP文件下载显示
+						}
+						else
+						{
+							if((i==(MaxFileNum+2))&&(Comm_Ram->DisplayAllErrorTimer==0))
+							{
+								MWR(MaxFileNum+3,ADDR_FTPFileFlags+4,1);//FTP文件下载且显示清除标志
+							}
+							#if ErrorAutoDisplay==1//0=允许,1=禁止;系统错误自动立即显示
+								if(Comm_Ram->Factory!=0x55)//0x55=工厂状态
+								{//不是工厂状态
+									if(Comm_Ram->ErrorIC)
+									{
+										Comm_Ram->ErrorIC=0;
+										Comm_Ram->DisplayAllErrorTimer=0;
+									}
+								}
+							#endif
+							if((Comm_Ram->ErrorIC)&&(Comm_Ram->DisplayAllErrorTimer))
+							{//错误显示
+								DOTMIXPMODE->Task=2;//当前显示任务:0=上电屏幕,1=USB下载显示,2=错误显示,3=菜单显示,4=循环显示
+								DOTMIXPMODE->Mix=0;//点阵缓冲A和B合成方式:0=A,1=B,2=A|B,3=A^B,4=A&B
+								DisplayError();//硬件和软件模块错误显示
+							}
+							else
+							{
+								//循环显示
+								DOTMIXPMODE->Task=4;//当前显示任务:0=上电屏幕,1=USB下载显示,2=错误显示,3=菜单显示,4=循环显示
+								DOTMIXPMODE->Mix=0;//点阵缓冲A和B合成方式:0=A,1=B,2=A|B,3=A^B,4=A&B
+								DisplayLoop();//终端循显
+							}
+						}
+					}
+					LCDDataOut();//点阵数据输出到LCD屏(约需7MS,cclk=96MHz)
+				}				
+			}    
+			else
+			{//确认键按下，进主菜单
+				DOTMIXPMODE->Task=3;//当前显示任务:0=上电屏幕,1=USB下载显示,2=错误显示,3=菜单显示,4=循环显示
+				DOTMIXPMODE->Mix=2;//2;//点阵缓冲A和B合成方式:0=A,1=B,2=A|B,3=A^B,4=A&B
+				Comm_Ram->ButtonVal&=~0x10;//确认键使用后清楚
+				if(FileDownload->File&0x10)//文件标志(置位表示OK)::B0=MS,B1=OS,B2=Meter,B3=Terminal,B4=Menu,B5=Font,B6=,B7=Router,...B31=
+				{
+					MenuCount->Count=1;
+					p32=(u32 *)(ADDR_Menu_ENTRY);
+					Stack->MenuStack[MenuCount->Count].PC=p32[1];
+					Stack->MenuStack[MenuCount->Count].Task=0;//菜单任务计数(进入和退出时均清为0)
+					Stack->MenuStack[MenuCount->Count].MoveRow=0;//菜单上移条数(进入时总为0,返回时不变)
+					Stack->MenuStack[MenuCount->Count].EditRow=1;//菜单当前正在编辑行号(0-9)(进入时总为1,返回时不变)
+					Stack->MenuStack[MenuCount->Count].EditCol=0;//菜单当前正在编辑列号(0-19)(进入时总为0,返回时不变)
+					Call_E2(0);//调用E2菜单
+					DisplayClrRow(0,0);//清屏幕显示的指定行
+					//DisplayClrRow(9,9);//清屏幕显示的指定行
+					DisplayLoop_TopICO(0);//顶图标和时钟显示
+					DisplayLoop_BottomICO(9);//底图标显示
+				}
+				//点阵显示输出
+				Comm_Ram->DisplayScanTimer=1000/10;//1100/10;
+				LCDDataOut();//点阵数据输出到LCD屏(约需7MS,cclk=96MHz)
+			}
+			
+	}		
+	else
+	{//菜单堆栈计数!=0
+		if(FileDownload->File&0x10)//文件标志(置位表示OK)::B0=MS,B1=OS,B2=Meter,B3=Terminal,B4=Menu,B5=Font,B6=,B7=Router,...B31=
+		{
+			Call_E2(Stack->MenuStack[MenuCount->Count].PC);//调用E2菜单
+		}
+		if(Comm_Ram->DisplayScanTimer==0x0)
+		{
+			//p8=(u8*)(ADDR_MenuICO);//1byte 菜单中显示顶行和底行图标 0=否,1=是
+			//if(p8[0]!=0)
+			//{
+			DisplayClrRow(0,0);//清屏幕显示的指定行
+			//DisplayClrRow(9,9);//清屏幕显示的指定行
+			DisplayLoop_TopICO(0);//顶图标和时钟显示
+			DisplayLoop_BottomICO(9);//底图标显示
+			//}
+			//点阵显示输出
+			Comm_Ram->DisplayScanTimer=1000/10;//1100/10;
+			LCDDataOut();//点阵数据输出到LCD屏(约需7MS,cclk=96MHz)
+		}
+		if(Comm_Ram->MenuOutTimer==0)
+		{//菜单退出 10MS定时器
+			MenuCount->Count=0;
+		}
+	}
+}
+
+#endif
+
+void Terminal_Main_PowerUp(void)
+{
+#if ((Project/100)==2)||((Project/100)==3)	
+	Terminal_DisplayTask();			// 显示任务
+#endif
+	Terminal_Uart_Manage();			// Terminal_Uart管理
+	
+	Terminal_Task();				// 分时任务(电网有电)	
+}
+
+#if ((Project/100)==2)||((Project/100)==3)	
+void Terminal_PowerDownTask(void)
+{
+
+	Terminal_DisplayTask();
+
+	MultiFrameSendTask(GPRSPORT);
+	MultiFrameSendTask(ENETPORT);
+	
+	EthernetModuleManage(ENETPORT);
+	GPRSModuleManage(GPRSPORT);
+
+	TerminalReportTask(ENETPORT);
+	TerminalReportTask(GPRSPORT);
+
+	UartPortManage(IRPORT, (UartTaskCtrlStruct*)ADDR_IR_Task_Ctrl);
+	UartTaskProcess(IRPORT, (UartTaskCtrlStruct*)ADDR_IR_Task_Ctrl);
+
+	UartPortManage(RS232PORT, (UartTaskCtrlStruct*)ADDR_RS232_Task_Ctrl);
+	UartTaskProcess(RS232PORT, (UartTaskCtrlStruct*)ADDR_RS232_Task_Ctrl);
+}
+#endif
+
+#if ((Project/100)==5)
+void Terminal_PowerDownTask(void)
+{
+	MultiFrameSendTask(GPRSPORT);
+	GPRSModuleManage(GPRSPORT);
+	TerminalReportTask(GPRSPORT);
+
+	UartPortManage(IRPORT, (UartTaskCtrlStruct*)ADDR_IR_Task_Ctrl);
+	UartTaskProcess(IRPORT, (UartTaskCtrlStruct*)ADDR_IR_Task_Ctrl);
+
+	UartPortManage(RS232PORT, (UartTaskCtrlStruct*)ADDR_RS232_Task_Ctrl);
+	UartTaskProcess(RS232PORT, (UartTaskCtrlStruct*)ADDR_RS232_Task_Ctrl);
+}
+#endif
+
+#if ((Project/100)==2)||((Project/100)==3)	
+
+void Terminal_Main_Battery(void)			// 电池供电
+{
+#if ((Project/100) < 2)						//方案0=智能表,100=网络表,200=集中器,300=专变终端,400=公变终端,500=通信模块
+	return;
+#else
+	if(Comm_Ram->BattWork_S_timer==0)		// 4 电池工作关机秒定时器
+	{
+		DeepPowerDown();					// 深度电源下降模式
+	}
+	else
+	{
+		Terminal_DisplayTask();				// I2显示
+		SCB->SCR = 0x0;						// SLEEPDEEP=0
+		__WFI();
+		if(Pin_Read(PIN_WKUP) != 0)
+		{
+			WWDT_RESET();					// 立即使能看门狗复位
+		}
+	}		
+#endif
+}
+#endif
+
+void Terminal_Main(void)
+{
+	switch(Comm_Ram->POWER)//电源:0=电池供电,1=电网供电转电池供电重启动,2=电网供电转电池供电,3=电网供电
+	{
+		case 0:														// 0=电池供电
+			if(Comm_Ram->UBACKUP<RechargeableBatteryStopMin)		// 可充电池停止工作最电压4.40V
+			{
+				DeepPowerDown();									// 深度电源下降模式
+			}
+			#if ((Project/100)==2)||((Project/100)==3)	
+				Terminal_Main_Battery();								// I2电池供电
+			#endif
+			break;
+		case 1:														// 1=电网供电转电池供电重启动
+			DeepPowerDown();										// 深度电源下降模式
+			break;
+		case 2:														// 2=电网供电转电池供电
+			if(Comm_Ram->UBACKUP<RechargeableBatteryStartMin)		// 可充电池启动工作最小电压4.80V
+			{
+				DeepPowerDown();									// 深度电源下降模式
+				return;
+			}
+			Terminal_PowerDown();									// 2=电网供电转电池供电
+			Terminal_PowerDownTask();
+			break;
+		case 3:														// 3=电网供电
+			Terminal_Main_PowerUp();								// I2电网有电
+			break;
+	}
+
+}
+
+
+
+
+
+

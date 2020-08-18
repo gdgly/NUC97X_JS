@@ -1,0 +1,29 @@
+
+
+
+
+
+LOAD_Terminal 0x08060000 0x80000;
+{
+  TerminalCSG.HEX 0x08060000 0x80000;
+  {
+;//Entry
+		Terminal_Entry.o(RESET,+FIRST)
+		
+		
+    *.o(+RO)
+		
+;//End
+		Terminal_End.O(Terminal_End,+LAST)	
+  }
+	
+}
+
+
+
+
+
+
+
+
+

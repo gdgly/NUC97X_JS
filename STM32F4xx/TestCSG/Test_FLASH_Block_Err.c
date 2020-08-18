@@ -1,0 +1,711 @@
+
+#if MainProtocol==376
+#include "../Head/Project.h"
+#endif
+#if MainProtocol==698
+#include "../H698/Project698.h"
+#endif
+#if MainProtocol==CSG
+#include "../Hcsg/ProjectCSG.h"
+#endif
+#include "../TEST/Test_FLASH_Block_Err.h"
+#include "../Display/Display.h"
+#include "../Device/NAND.h"
+#include "../Calculate/Calculate.h"
+#include "../Device/MEMRW.h"
+#include "../STM32F4xx/STM32F4xx_WDG.h"
+#include "../STM32F4xx/STM32F4xx_SoftDelay.h"
+#include "../STM32F4xx/STM32F4xx_IO.h"
+
+
+
+
+#if IC_MT29FxG==1
+#if NAND_BUS_WIDTH==8//8=8bit,16=16bit
+//bus=8bit
+u32 Test_BLOCK_Write_NAND(u32 ADDR_Dest,u32 Data)//块写ADDR_128KWRITE_BUFF中数据到FLASH块,同时读出比较;返回;0=正确,1=错误;实测HCLK=168M时107ms
+{
+	u32 i;
+	u32 Page;
+	u8 *p8;
+	u32 ReNum;
+	
+	p8=(u8*)0x80000000;
+	ADDR_Dest&=0xfffe0000;
+	WWDT_Enable_Feed(WDTTimerOutVal);//允许看门狗和喂狗;最大TimerOutMS=(0xfff*256)/32=32768ms
+//块写
+	ReNum=1;//写入错误重复次数
+	while(ReNum--)
+	{
+		//块擦除
+		p8[0x10000]=0x60;//Command
+		p8[0x20000]=(ADDR_Dest>>11);//Row Add. 1
+		p8[0x20000]=(ADDR_Dest>>19);//Row Add. 2
+	#if (NAND_2G|NAND_4G|NAND_8G)
+		p8[0x20000]=(ADDR_Dest>>27);//Row Add. 3
+	#endif
+		p8[0x10000]=0xD0;//Command
+		while(!(FMC_Bank3->SR&(1<<6)));//0：FIFO 非空
+		//等待块擦除完成
+		Wait_NAND(3000*3);//读NAND状态寄存器等待当前命令完成,返回:0=正确,!=0读取的状态字
+
+		//块写回(每分页2048字节)
+		for(Page=0;Page<64;Page++)
+		{
+			while(1)//掉电中断冲突重写
+			{
+				i=ADDR_Dest+(Page*2048);
+				p8[0x10000]=0x80;//Command
+				p8[0x20000]=i;//Col.Add.1
+				p8[0x20000]=(i>>8)&0x7;//Col.Add.2
+				p8[0x20000]=(i>>11);//Row Add. 1
+				p8[0x20000]=(i>>19);//Row Add. 2
+			#if (NAND_2G|NAND_4G|NAND_8G)
+				p8[0x20000]=(i>>27);//Row Add. 3
+			#endif
+				for(i=0;i<2048;i++)
+				{
+					p8[0]=Data;
+				}
+//				if(Comm_Ram->IntFlags&0x08)//中断服务中使用冲突标志
+//				{
+//					Comm_Ram->IntFlags=0;//中断服务中使用冲突标志
+//					p8WBUFF-=8*256;
+//					continue;
+//				}
+				p8[0x10000]=0x10;//Command
+				break;
+			}
+			Wait_NAND(600*3);//读NAND状态寄存器等待当前命令完成,返回:0=正确,!=0读取的状态字
+		}
+	//读比较
+		while(1)//
+		{
+			for(Page=0;Page<64;Page++)
+			{
+				i=(ADDR_Dest&0xfffe0000)+(Page*2048);
+				p8[0x10000]=0x00;//1st Cycle Page Read Command
+				p8[0x20000]=i;//Col.Add.1
+				p8[0x20000]=(i>>8)&0x7;//Col.Add.2
+				p8[0x20000]=(i>>11);//Row Add. 1
+				p8[0x20000]=(i>>19);//Row Add. 2
+			#if (NAND_2G|NAND_4G|NAND_8G)
+				p8[0x20000]=(i>>27);//Row Add. 3
+			#endif
+				p8[0x10000]=0x30;//2nd Cycle Cycle Page Read Command
+				Wait_NAND(70*3);//读NAND状态寄存器等待当前命令完成,返回:0=正确,!=0读取的状态字
+				p8[0x10000]=0x00;//1st Cycle Page Read Command
+				while(!(FMC_Bank3->SR&(1<<6)));//0：FIFO 非空
+				i=4;//至少延时tWHR=60ns
+				while(i--);
+
+				for(i=0;i<2048;i++)
+				{
+					if(Data!=p8[0])
+					{
+						break;
+					}
+				}
+				if(i<2048)
+				{//不相同
+					break;
+				}
+//				p8WBUFF+=2048;
+			}
+			break;
+		}
+		if(Page==64)
+		{//相同
+			return 0;//返回;0=正确,1=错误
+		}
+	}
+	return 1;//返回;0=正确,1=错误
+}
+#else
+//bus=16bit
+u32 Test_BLOCK_Write_NAND(u32 ADDR_Dest,u32 Data)//块写ADDR_128KWRITE_BUFF中数据到FLASH块,同时读出比较;返回;0=正确,1=错误;实测HCLK=168M时107ms
+{
+	u32 i;
+	u32 Page;
+	u16 *p16;
+	u32 ReNum;
+	
+	p16=(u16*)0x80000000;
+	ADDR_Dest&=0xfffe0000;
+	WWDT_Enable_Feed(WDTTimerOutVal);//允许看门狗和喂狗;最大TimerOutMS=(0xfff*256)/32=32768ms
+//块写
+	ReNum=1;//写入错误重复次数
+	while(ReNum--)
+	{
+		//块擦除
+		i=ADDR_Dest;
+		i>>=1;
+		p16[0x10000>>1]=0x60;//Command
+		p16[0x20000>>1]=(i>>10);//Row Add. 1
+		p16[0x20000>>1]=(i>>18);//Row Add. 2
+	#if (NAND_2G|NAND_4G|NAND_8G)
+		p16[0x20000>>1]=(i>>26);//Row Add. 3
+	#endif
+		p16[0x10000>>1]=0xD0;//Command
+		while(!(FMC_Bank3->SR&(1<<6)));//0：FIFO 非空
+		//等待块擦除完成
+		Wait_NAND(3000*3);//读NAND状态寄存器等待当前命令完成,返回:0=正确,!=0读取的状态字
+
+		//块写回(每分页2048字节)
+		for(Page=0;Page<64;Page++)
+		{
+			while(1)//掉电中断冲突重写
+			{
+				i=ADDR_Dest+(Page*2048);
+				i>>=1;
+				p16[0x10000>>1]=0x80;//Command
+				p16[0x20000>>1]=i;//Col.Add.1
+				p16[0x20000>>1]=(i>>8)&0x3;//Col.Add.2
+				p16[0x20000>>1]=(i>>10);//Row Add. 1
+				p16[0x20000>>1]=(i>>18);//Row Add. 2
+			#if (NAND_2G|NAND_4G|NAND_8G)
+				p16[0x20000>>1]=(i>>26);//Row Add. 3
+			#endif
+				for(i=0;i<1024;i++)
+				{
+					p16[0]=Data;
+				}
+//				if(Comm_Ram->IntFlags&0x08)//中断服务中使用冲突标志
+//				{
+//					Comm_Ram->IntFlags=0;//中断服务中使用冲突标志
+//					p8WBUFF-=8*256;
+//					continue;
+//				}
+				p16[0x10000>>1]=0x10;//Command
+				break;
+			}
+			Wait_NAND(600*3);//读NAND状态寄存器等待当前命令完成,返回:0=正确,!=0读取的状态字
+		}
+	//读比较
+		while(1)//
+		{
+			for(Page=0;Page<64;Page++)
+			{
+				i=(ADDR_Dest&0xfffe0000)+(Page*2048);
+				i>>=1;
+				p16[0x10000>>1]=0x00;//1st Cycle Page Read Command
+				p16[0x20000>>1]=i;//Col.Add.1
+				p16[0x20000>>1]=(i>>8)&0x3;//Col.Add.2
+				p16[0x20000>>1]=(i>>10);//Row Add. 1
+				p16[0x20000>>1]=(i>>18);//Row Add. 2
+			#if (NAND_2G|NAND_4G|NAND_8G)
+				p16[0x20000>>1]=(i>>26);//Row Add. 3
+			#endif
+				p16[0x10000>>1]=0x30;//2nd Cycle Cycle Page Read Command
+				Wait_NAND(70*3);//读NAND状态寄存器等待当前命令完成,返回:0=正确,!=0读取的状态字
+				p16[0x10000>>1]=0x00;//1st Cycle Page Read Command
+				while(!(FMC_Bank3->SR&(1<<6)));//0：FIFO 非空
+				i=4;//至少延时tWHR=60ns
+				while(i--);
+
+				for(i=0;i<1024;i++)
+				{
+					if(Data!=p16[0])
+					{
+						break;
+					}
+				}
+				if(i<1024)
+				{//不相同
+					break;
+				}
+//				p8WBUFF+=2048;
+			}
+			break;
+		}
+		if(Page==64)
+		{//相同
+			return 0;//返回;0=正确,1=错误
+		}
+	}
+	return 1;//返回;0=正确,1=错误
+}
+#endif
+
+
+u32 Test_FLASH_Block_Err(void)//返回;0=正确,1=错误
+{
+	u32 i;
+	u32 x;
+	u32 ADDR_BASE;
+	u32 BLOCK_COUNT;
+	u32 ERROR_COUNT;
+	
+//	u32 *p32;
+	u16 *pStrBuff;
+	u8 *p8EEPROM;
+	
+	
+	p8EEPROM=(u8*)ADDR_Characteristics_NO;//1BYTE 按温度区分的测试号:0=常温(-5<T<45),1=低温(T<-5),2=高温（T>45)
+	i=p8EEPROM[0];
+	if(i>2)
+	{
+		i=0;
+	}
+	ADDR_BASE=ADDR_Characteristics_BASE1+(i*LEN_BASE_Characteristics);
+	
+	__disable_irq();//关中断
+	DisplayClr();//清全屏
+	
+	DisplayStringAutoUp(0,9,(u8*)"\x0""NAND FLASH TEST");//显示字符串自动向上平移;出口:修改下一显示行并寄存在ADDR_AutoRowCol
+//	i=ID_S34MLxxG2();//读器件ID(1Gb*8=0x01F1801D,1Gb*16=0x01C1805D)
+//	if(i!=0x01F1801D)
+//	{
+//		DisplayStringAutoUp(0,9,(u8*)"\x0""Error!");//显示字符串自动向上平移;出口:修改下一显示行并寄存在ADDR_AutoRowCol
+//		return;
+//	}
+#if NAND_1G==1//0=没,1=有(128 Mbyte)
+	DisplayStringAutoUp(0,9,(u8*)"\x0""Total Blocks:1024");//显示字符串自动向上平移;出口:修改下一显示行并寄存在ADDR_AutoRowCol
+#endif
+#if NAND_2G==1//0=没,1=有(256 Mbyte)
+	DisplayStringAutoUp(0,9,(u8*)"\x0""Total Blocks:2048");//显示字符串自动向上平移;出口:修改下一显示行并寄存在ADDR_AutoRowCol
+#endif
+#if NAND_4G==1//0=没,1=有(512 Mbyte)
+	DisplayStringAutoUp(0,9,(u8*)"\x0""Total Blocks:4096");//显示字符串自动向上平移;出口:修改下一显示行并寄存在ADDR_AutoRowCol
+#endif
+#if NAND_8G==1//0=没,1=有(512 Mbyte)
+	DisplayStringAutoUp(0,9,(u8*)"\x0""Total Blocks:8192");//显示字符串自动向上平移;出口:修改下一显示行并寄存在ADDR_AutoRowCol
+#endif
+	DisplayStringAutoUp(0,9,(u8*)"\x0""Error Blocks:0");//显示字符串自动向上平移;出口:修改下一显示行并寄存在ADDR_AutoRowCol
+	DisplayStringAutoUp(0,9,(u8*)"\x0"" ");//留给进度显示行
+	
+	MC(0xFD,ADDR_NANDFLASH_BLOCK_REPLACE,NAND_BLOCK_COUNT);//EEPROM清除
+//	p32=(u32*)(ADDR_128KWRITE_BUFF);
+	p8EEPROM=(u8*)ADDR_NANDFLASH_BLOCK_REPLACE;
+	
+	for(BLOCK_COUNT=NAND_FILE_BLOCK_COUNT;BLOCK_COUNT<NAND_BLOCK_COUNT;BLOCK_COUNT++)
+	{
+//		//保护原数据
+//		Read_NAND(ADDR_128K_DATABUFF,BLOCK_COUNT*128*1024,128*1024);//NAND_FLASH S34MLxxG2没替换读
+		//写0
+//		for(i=0;i<((128*1024)/4);i++)
+//		{
+//			p32[i]=0;
+//		}
+		i=Test_BLOCK_Write_NAND(BLOCK_COUNT*128*1024,0x0);//块写ADDR_128KWRITE_BUFF中数据到FLASH块,同时读出比较;返回;0=正确,1=错误
+		if(i!=0)
+		{
+			MC(0xFE,ADDR_NANDFLASH_BLOCK_REPLACE+BLOCK_COUNT,1);//EEPROM清除
+		}
+//		//块写顺序数
+//		for(i=0;i<((128*1024)/4);i++)
+//		{
+//			p32[i]=i;
+//		}
+//		i=BLOCK_Write_NAND(BLOCK_COUNT*128*1024);//块写ADDR_128KWRITE_BUFF中数据到FLASH块,同时读出比较;返回;0=正确,1=错误
+//		if(i!=0)
+//		{
+//			MC(0xFE,ADDR_NANDFLASH_BLOCK_REPLACE+BLOCK_COUNT,1);//EEPROM清除
+//		}
+		//写0xff
+//		for(i=0;i<((128*1024)/4);i++)
+//		{
+//			p32[i]=0xffffffff;
+//		}
+		i=Test_BLOCK_Write_NAND(BLOCK_COUNT*128*1024,0xff);//块写ADDR_128KWRITE_BUFF中数据到FLASH块,同时读出比较;返回;0=正确,1=错误
+		if(i!=0)
+		{
+			MC(0xFE,ADDR_NANDFLASH_BLOCK_REPLACE+BLOCK_COUNT,1);//EEPROM清除
+		}
+//		//恢复原数据
+//		MW(ADDR_128K_DATABUFF,ADDR_128KWRITE_BUFF,128*1024);
+//		BLOCK_Write_NAND(BLOCK_COUNT*128*1024);//块写ADDR_128KWRITE_BUFF中数据到FLASH块,同时读出比较;返回;0=正确,1=错误
+
+		if((BLOCK_COUNT%8)==0)
+		{
+			//显示错误块数
+			ERROR_COUNT=0;
+			for(i=0;i<NAND_BLOCK_COUNT;i++)
+			{
+				x=p8EEPROM[i];
+				if(x==0xFE)
+				{
+					ERROR_COUNT++;
+					continue;
+				}
+				if((x>=1)&&(x<=NAND_REPLACE_BLOCK_COUNT))
+				{
+					ERROR_COUNT++;
+				}
+			}
+			pStrBuff=(u16 *)(ADDR_STRINGBUFF+((AutoDisplayRowCol->Row-2)*84)+4+(13*2));
+			for(i=0;i<4;i++)
+			{
+				pStrBuff[i]=0;
+			}
+			x=hex_bcd(ERROR_COUNT);
+			DisplayData_OffZero(x,4,0,pStrBuff);//仅显示有效位数据,入口指定要显BCD位数,小点数插入位等,使用ADDR_MEMRWREGBUFF
+			//显示定时(S)
+
+			//显示进度
+			i=(BLOCK_COUNT*100)/NAND_BLOCK_COUNT;
+			DisplayRATE(AutoDisplayRowCol->Row-1,i);//显示进度;入口:Ln=显示行,Rate=进度(hex,0-100%)
+		}
+	}
+
+	
+	//结果
+	AutoDisplayRowCol->Row--;
+	DisplayClrRow(AutoDisplayRowCol->Row,AutoDisplayRowCol->Row);//清进度显示行
+	MWR(ERROR_COUNT,ADDR_BASE+(OFFSET_NAND_ERROR_BLOCKS),2);
+#if NAND_1G==1//0=没,1=有(128 Mbyte)
+	if(ERROR_COUNT<=20)
+#endif
+#if NAND_2G==1//0=没,1=有(256 Mbyte)
+	if(ERROR_COUNT<=40)
+#endif
+#if NAND_4G==1//0=没,1=有(512 Mbyte)
+	if(ERROR_COUNT<=80)
+#endif
+#if NAND_8G==1//0=没,1=有(512 Mbyte)
+	if(ERROR_COUNT<=160)
+#endif
+	{
+		DisplayStringAutoUp(0,9,(u8*)"\x0""OK");//显示字符串自动向上平移;出口:修改下一显示行并寄存在ADDR_AutoRowCol
+	__enable_irq();//原中断恢复
+		return 0;//返回;0=正确,1=错误
+	}
+	else
+	{
+		DisplayStringAutoUp(0,9,(u8*)"\x0""ERROR");//显示字符串自动向上平移;出口:修改下一显示行并寄存在ADDR_AutoRowCol
+		MWR(1,ADDR_BASE+(OFFSET_TestResult_Characteristics),1);//总测试结果0=合格,1=不合格,0xff=无结论
+	__enable_irq();//原中断恢复
+		return 1;//返回;0=正确,1=错误
+	}
+
+}
+#endif
+
+
+#if IC_S34MLxG==1
+u32 Test_BLOCK_Write_NAND(u32 ADDR_Dest,u32 Data)//块写ADDR_128KWRITE_BUFF中数据到FLASH块,同时读出比较;返回;0=正确,1=错误;实测HCLK=168M时107ms
+{
+	u32 i;
+	u32 x;
+	u32 Page;
+	u8 *p8;
+//	u8 *p8WBUFF;
+	u8 *p8RBUFF;
+	u8 *p8ECC;
+	u32 *p32ECC;
+	u32 ReNum;
+	
+	p8=(u8*)0x80000000;
+	ADDR_Dest&=0xfffe0000;
+	WWDT_Enable_Feed(WDTTimerOutVal);//允许看门狗和喂狗;最大TimerOutMS=(0xfff*256)/32=32768ms
+//块写
+	ReNum=1;//写入错误重复次数
+	while(ReNum--)
+	{
+		//块擦除
+		p8[0x10000]=0x60;//Command
+		p8[0x20000]=(ADDR_Dest>>11);//Row Add. 1
+		p8[0x20000]=(ADDR_Dest>>19);//Row Add. 2
+	#if (NAND_2G|NAND_4G|NAND_8G)
+		p8[0x20000]=(ADDR_Dest>>27);//Row Add. 3
+	#endif
+		p8[0x10000]=0xD0;//Command
+		while(!(FMC_Bank3->SR&(1<<6)));//0：FIFO 非空
+		//等待块擦除完成
+		for(i=0;i<1000;i++)//常规测试时值i=111;当前最大值1000
+		{
+			SoftDelayUS(10);//软件us延时
+			if(Pin_Read(PIN_NAND_WAIT)!=0)//读引脚,入口引脚使用名;返回0或1
+			{
+				break;
+			}
+		}
+		//块写回(每分页2048字节)
+//		p8WBUFF=(u8*)(ADDR_128KWRITE_BUFF);
+		for(Page=0;Page<64;Page++)
+		{
+			while(1)//掉电中断冲突重写
+			{
+				i=ADDR_Dest+(Page*2048);
+				p8[0x10000]=0x80;//Command
+				p8[0x20000]=i;//Col.Add.1
+				p8[0x20000]=(i>>8)&0x7;//Col.Add.2
+				p8[0x20000]=(i>>11);//Row Add. 1
+				p8[0x20000]=(i>>19);//Row Add. 2
+			#if (NAND_2G|NAND_4G|NAND_8G)
+				p8[0x20000]=(i>>27);//Row Add. 3
+			#endif
+				p32ECC=(u32*)(ADDR_ECC_BUFF);
+				for(x=0;x<8;x++)
+				{
+					FMC_Bank3->PCR&=~(1<<6);//禁止和复位 ECC 逻辑
+					FMC_Bank3->PCR|=(1<<6);//ECC 计算逻辑使能位
+					for(i=0;i<256;i++)
+					{
+						p8[0]=Data;
+					}
+					while(!(FMC_Bank3->SR&(1<<6)));//0：FIFO 非空
+					for(i=0;i<2;i++);//等待最后字节ECC完成
+					i=FMC_Bank3->ECCR;
+					p32ECC[0]=i;
+					p32ECC++;
+				}
+				//写ECC
+				p8ECC=(u8*)(ADDR_ECC_BUFF);
+				for(i=0;i<64;i++)
+				{
+					p8[0]=p8ECC[i];
+				}
+//				if(Comm_Ram->IntFlags&0x08)//中断服务中使用冲突标志
+//				{
+//					Comm_Ram->IntFlags=0;//中断服务中使用冲突标志
+//					p8WBUFF-=8*256;
+//					continue;
+//				}
+				p8[0x10000]=0x10;//Command
+				while(!(FMC_Bank3->SR&(1<<6)));//0：FIFO 非空
+				break;
+			}
+			for(i=0;i<230;i++)//常规测试时值i=23;当前最大值230
+			{
+				SoftDelayUS(10);//软件us延时
+				if(Pin_Read(PIN_NAND_WAIT)!=0)//读引脚,入口引脚使用名;返回0或1
+				{
+					break;
+				}
+			}
+		}
+	//读比较
+		while(1)//
+		{
+//			p8WBUFF=(u8*)(ADDR_128KWRITE_BUFF);
+			for(Page=0;Page<64;Page++)
+			{
+				i=(ADDR_Dest&0xfffe0000)+(Page*2048);
+				p8[0x10000]=0x00;//1st Cycle Page Read Command
+				p8[0x20000]=i;//Col.Add.1
+				p8[0x20000]=(i>>8)&0x7;//Col.Add.2
+				p8[0x20000]=(i>>11);//Row Add. 1
+				p8[0x20000]=(i>>19);//Row Add. 2
+			#if (NAND_2G|NAND_4G|NAND_8G)
+				p8[0x20000]=(i>>27);//Row Add. 3
+			#endif
+				p8[0x10000]=0x30;//2nd Cycle Cycle Page Read Command
+				
+				while(!(FMC_Bank3->SR&(1<<6)));//0：FIFO 非空
+				for(i=0;i<100;i++)//常规测试时值i=9;当前最大值100
+				{
+					SoftDelayUS(1);//软件us延时
+					if(Pin_Read(PIN_NAND_WAIT)!=0)//读引脚,入口引脚使用名;返回0或1
+					{
+						break;
+					}
+				}
+				p8RBUFF=(u8*)(ADDR_NAND_PAGEREAD_BUFF);
+				p32ECC=(u32*)(ADDR_ECC_BUFF+128);
+				for(x=0;x<8;x++)
+				{
+					FMC_Bank3->PCR&=~(1<<6);//禁止和复位 ECC 逻辑
+					FMC_Bank3->PCR|=(1<<6);//ECC 计算逻辑使能位
+					for(i=0;i<256;i++)
+					{
+						*p8RBUFF=p8[0];
+						p8RBUFF++;
+					}
+					while(!(FMC_Bank3->SR&(1<<6)));//0：FIFO 非空
+					for(i=0;i<2;i++);//等待最后字节ECC完成
+					i=FMC_Bank3->ECCR;
+					p32ECC[0]=i;
+					p32ECC++;
+				}
+				//读ECC
+				p8ECC=(u8*)(ADDR_ECC_BUFF);
+				for(i=0;i<64;i++)
+				{
+					*p8ECC=p8[0];
+					p8ECC++;
+				}
+				//ECC修正
+//				for(i=0;i<8;i++)
+//				{
+//					STM32F4xx_ECC_Correct_Data((u8 *)ADDR_NAND_PAGEREAD_BUFF+(i*256),(u32 *)(ADDR_ECC_BUFF+(i*4)),(u32 *)(ADDR_ECC_BUFF+128+(i*4)));//NAND错误数据修正
+//				}
+				p8RBUFF=(u8*)(ADDR_NAND_PAGEREAD_BUFF);
+				for(i=0;i<2048;i++)
+				{
+					if(Data!=p8RBUFF[i])
+					{
+						break;
+					}
+				}
+				if(i<2048)
+				{//不相同
+					break;
+				}
+//				p8WBUFF+=2048;
+			}
+			break;
+		}
+		if(Page==64)
+		{//相同
+			return 0;//返回;0=正确,1=错误
+		}
+	}
+	return 1;//返回;0=正确,1=错误
+}
+
+
+
+u32 Test_FLASH_Block_Err(void)//返回;0=正确,1=错误
+{
+	u32 i;
+	u32 x;
+	u32 ADDR_BASE;
+	u32 BLOCK_COUNT;
+	u32 ERROR_COUNT;
+	
+//	u32 *p32;
+	u16 *pStrBuff;
+	u8 *p8EEPROM;
+	
+	
+	p8EEPROM=(u8*)ADDR_Characteristics_NO;//1BYTE 按温度区分的测试号:0=常温(-5<T<45),1=低温(T<-5),2=高温（T>45)
+	i=p8EEPROM[0];
+	if(i>2)
+	{
+		i=0;
+	}
+	ADDR_BASE=ADDR_Characteristics_BASE1+(i*LEN_BASE_Characteristics);
+	
+	__disable_irq();//关中断
+	DisplayClr();//清全屏
+	
+	DisplayStringAutoUp(0,9,(u8*)"\x0""NAND FLASH TEST");//显示字符串自动向上平移;出口:修改下一显示行并寄存在ADDR_AutoRowCol
+//	i=ID_S34MLxxG2();//读器件ID(1Gb*8=0x01F1801D,1Gb*16=0x01C1805D)
+//	if(i!=0x01F1801D)
+//	{
+//		DisplayStringAutoUp(0,9,(u8*)"\x0""Error!");//显示字符串自动向上平移;出口:修改下一显示行并寄存在ADDR_AutoRowCol
+//		return;
+//	}
+#if NAND_1G==1//0=没,1=有(128 Mbyte)
+	DisplayStringAutoUp(0,9,(u8*)"\x0""Total Blocks:1024");//显示字符串自动向上平移;出口:修改下一显示行并寄存在ADDR_AutoRowCol
+#endif
+#if NAND_2G==1//0=没,1=有(256 Mbyte)
+	DisplayStringAutoUp(0,9,(u8*)"\x0""Total Blocks:2048");//显示字符串自动向上平移;出口:修改下一显示行并寄存在ADDR_AutoRowCol
+#endif
+#if NAND_4G==1//0=没,1=有(512 Mbyte)
+	DisplayStringAutoUp(0,9,(u8*)"\x0""Total Blocks:4096");//显示字符串自动向上平移;出口:修改下一显示行并寄存在ADDR_AutoRowCol
+#endif
+	DisplayStringAutoUp(0,9,(u8*)"\x0""Error Blocks:0");//显示字符串自动向上平移;出口:修改下一显示行并寄存在ADDR_AutoRowCol
+	DisplayStringAutoUp(0,9,(u8*)"\x0"" ");//留给进度显示行
+	
+	MC(0xFD,ADDR_NANDFLASH_BLOCK_REPLACE,NAND_BLOCK_COUNT);//EEPROM清除
+//	p32=(u32*)(ADDR_128KWRITE_BUFF);
+	p8EEPROM=(u8*)ADDR_NANDFLASH_BLOCK_REPLACE;
+	
+	for(BLOCK_COUNT=NAND_FILE_BLOCK_COUNT;BLOCK_COUNT<NAND_BLOCK_COUNT;BLOCK_COUNT++)
+	{
+//		//保护原数据
+//		Read_NAND(ADDR_128K_DATABUFF,BLOCK_COUNT*128*1024,128*1024);//NAND_FLASH S34MLxxG2没替换读
+		//写0
+//		for(i=0;i<((128*1024)/4);i++)
+//		{
+//			p32[i]=0;
+//		}
+		i=Test_BLOCK_Write_NAND(BLOCK_COUNT*128*1024,0x0);//块写ADDR_128KWRITE_BUFF中数据到FLASH块,同时读出比较;返回;0=正确,1=错误
+		if(i!=0)
+		{
+			MC(0xFE,ADDR_NANDFLASH_BLOCK_REPLACE+BLOCK_COUNT,1);//EEPROM清除
+		}
+//		//块写顺序数
+//		for(i=0;i<((128*1024)/4);i++)
+//		{
+//			p32[i]=i;
+//		}
+//		i=BLOCK_Write_NAND(BLOCK_COUNT*128*1024);//块写ADDR_128KWRITE_BUFF中数据到FLASH块,同时读出比较;返回;0=正确,1=错误
+//		if(i!=0)
+//		{
+//			MC(0xFE,ADDR_NANDFLASH_BLOCK_REPLACE+BLOCK_COUNT,1);//EEPROM清除
+//		}
+		//写0xff
+//		for(i=0;i<((128*1024)/4);i++)
+//		{
+//			p32[i]=0xffffffff;
+//		}
+		i=Test_BLOCK_Write_NAND(BLOCK_COUNT*128*1024,0xff);//块写ADDR_128KWRITE_BUFF中数据到FLASH块,同时读出比较;返回;0=正确,1=错误
+		if(i!=0)
+		{
+			MC(0xFE,ADDR_NANDFLASH_BLOCK_REPLACE+BLOCK_COUNT,1);//EEPROM清除
+		}
+//		//恢复原数据
+//		MW(ADDR_128K_DATABUFF,ADDR_128KWRITE_BUFF,128*1024);
+//		BLOCK_Write_NAND(BLOCK_COUNT*128*1024);//块写ADDR_128KWRITE_BUFF中数据到FLASH块,同时读出比较;返回;0=正确,1=错误
+
+		if((BLOCK_COUNT%8)==0)
+		{
+			//显示错误块数
+			ERROR_COUNT=0;
+			for(i=0;i<NAND_BLOCK_COUNT;i++)
+			{
+				x=p8EEPROM[i];
+				if(x==0xFE)
+				{
+					ERROR_COUNT++;
+					continue;
+				}
+				if((x>=1)&&(x<=NAND_REPLACE_BLOCK_COUNT))
+				{
+					ERROR_COUNT++;
+				}
+			}
+			pStrBuff=(u16 *)(ADDR_STRINGBUFF+((AutoDisplayRowCol->Row-2)*84)+4+(13*2));
+			for(i=0;i<4;i++)
+			{
+				pStrBuff[i]=0;
+			}
+			x=hex_bcd(ERROR_COUNT);
+			DisplayData_OffZero(x,4,0,pStrBuff);//仅显示有效位数据,入口指定要显BCD位数,小点数插入位等,使用ADDR_MEMRWREGBUFF
+			//显示定时(S)
+
+			//显示进度
+			i=(BLOCK_COUNT*100)/NAND_BLOCK_COUNT;
+			DisplayRATE(AutoDisplayRowCol->Row-1,i);//显示进度;入口:Ln=显示行,Rate=进度(hex,0-100%)
+		}
+	}
+
+	
+	//结果
+	AutoDisplayRowCol->Row--;
+	DisplayClrRow(AutoDisplayRowCol->Row,AutoDisplayRowCol->Row);//清进度显示行
+	MWR(ERROR_COUNT,ADDR_BASE+(OFFSET_NAND_ERROR_BLOCKS),2);
+#if NAND_1G==1//0=没,1=有(128 Mbyte)
+	if(ERROR_COUNT<=20)
+#endif
+#if NAND_2G==1//0=没,1=有(256 Mbyte)
+	if(ERROR_COUNT<=40)
+#endif
+#if NAND_4G==1//0=没,1=有(512 Mbyte)
+	if(ERROR_COUNT<=80)
+#endif
+	{
+		DisplayStringAutoUp(0,9,(u8*)"\x0""OK");//显示字符串自动向上平移;出口:修改下一显示行并寄存在ADDR_AutoRowCol
+	__enable_irq();//原中断恢复
+		return 0;//返回;0=正确,1=错误
+	}
+	else
+	{
+		DisplayStringAutoUp(0,9,(u8*)"\x0""ERROR");//显示字符串自动向上平移;出口:修改下一显示行并寄存在ADDR_AutoRowCol
+		MWR(1,ADDR_BASE+(OFFSET_TestResult_Characteristics),1);//总测试结果0=合格,1=不合格,0xff=无结论
+	__enable_irq();//原中断恢复
+		return 1;//返回;0=正确,1=错误
+	}
+}
+#endif
+
+
+
+
+
+
+
+

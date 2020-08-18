@@ -1,0 +1,25 @@
+
+
+#ifndef MEMRW_H
+#define MEMRW_H
+#ifdef __cplusplus
+ extern "C" {
+#endif
+	 
+	 
+void MR(u32 ADDR_Dest,u32 ADDR_Sour,u32 Byte);//´æ´¢Æ÷¶Á
+void MW(u32 ADDR_Sour,u32 ADDR_Dest,u32 Byte);//´æ´¢Æ÷Ð´
+	 
+void MC(u32 Data,u32 ADDR_Dest,u32 Byte);//´æ´¢Æ÷Çå0
+void ME(u32 ADDR_Dest,u32 Byte);//FLASH¿é²Á³ý
+u64 MRR(u32 ADDR_Sour,u32 Byte);//´æ´¢Æ÷¶Áµ½¼Ä´æÆ÷(<=8×Ö½Ú)
+void MWR(u64 Data,u32 ADDR_Dest,u32 Byte);//¼Ä´æÆ÷Ð´µ½´æ´¢Æ÷(<=8×Ö½Ú)
+
+void LCDDataOut(void);//µãÕóÊý¾ÝÊä³öµ½LCDÆÁ
+	
+	 
+#ifdef __cplusplus
+ }
+#endif 
+#endif
+

@@ -1,0 +1,70 @@
+Dependencies for Project 'Terminal', Target 'LPC43xx': (DO NOT MODIFY !)
+F (.\Terminal.sct)(0x55D43398)()
+F (.\Terminal_Entry.s)(0x55D431EC)(--cpu Cortex-M4.fp -g --apcs=interwork -I D:\正泰设计\2013版\LPC18xx43xx\Terminal\RTE-I C:\Keil_v5\ARM\PACK\Keil\LPC4300_DFP\2.5.0\Device\Include-I C:\Keil_v5\ARM\CMSIS\Include--pd "__UVISION_VERSION SETA 516" --pd "CORE_M4 SETA 1"-o .\objects\terminal_entry.o --depend .\objects\terminal_entry.d)
+F (.\Terminal_Main.c)(0x55D430B8)(-c --cpu Cortex-M4.fp -g -O0 --apcs=interwork --split_sections -I..\Head-I D:\正泰设计\2013版\LPC18xx43xx\Terminal\RTE-I C:\Keil_v5\ARM\PACK\Keil\LPC4300_DFP\2.5.0\Device\Include-I C:\Keil_v5\ARM\CMSIS\Include-D__UVISION_VERSION="516" -DCORE_M4-o .\objects\terminal_main.o --omf_browse .\objects\terminal_main.crf --depend .\objects\terminal_main.d)
+I (..\Head\Project.h)(0x55D417E7)
+I (..\Head\type.h)(0x51F9B55B)
+I (C:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x55AEF5F2)
+I (..\Head\Pin_Project2xx.h)(0x55821F1D)
+I (..\Head\Project2xx_USER0xx.h)(0x55D3DD8F)
+I (..\Head\AFN04MaxPn.h)(0x53ABD58D)
+I (..\Head\AFN05MaxPn.h)(0x4F4D7F79)
+I (..\Head\AFN0CMaxPn.h)(0x5321186B)
+I (..\Head\AFN0DMaxPn.h)(0x50E792FF)
+I (..\Head\AFN0DMaxPn_Project2xx.h)(0x5562A085)
+I (..\Head\AFN0EMaxPn.h)(0x52B13C37)
+I (..\Head\ADDR_ENTRY.h)(0x55C98797)
+I (..\Head\IRAM.h)(0x55D41CD5)
+I (..\Head\IRAM_MeterSave.h)(0x53D75F4F)
+I (..\Head\IRAM_Meter.h)(0x543DB9B2)
+I (..\Head\IRAM_TerminalSave.h)(0x55629107)
+I (..\Head\IRAM_Terminal.h)(0x55B6F56D)
+I (..\Head\IEEPROM.h)(0x55D41BAE)
+I (..\Head\EFLASH.h)(0x55C1C5AF)
+I (..\Head\EFLASH_Meter.h)(0x55AC5969)
+I (..\Head\EFLASH_Terminal.h)(0x55AC5C18)
+I (..\Head\AFN04.h)(0x53990659)
+I (..\Head\AFN05.h)(0x53118358)
+I (..\Head\AFN0E.h)(0x531FCF01)
+I (..\Head\AFN0C_HourCongeal.h)(0x500DF5CC)
+I (..\Head\AFN0D_Source.h)(0x53CE3507)
+I (..\Head\AFN04Ext.h)(0x54D1CDAE)
+I (..\Head\AFN0D.h)(0x556292D9)
+I (..\Head\ERAM.h)(0x55B8475C)
+I (..\Head\AFN0C.h)(0x55769D85)
+I (..\Head\AFN0C_HourCongeal_Buff.h)(0x4FE16596)
+I (..\Head\AFN0D_Congeal_Buff.h)(0x52D1667B)
+F (.\Terminal_VER.c)(0x55D431C5)(-c --cpu Cortex-M4.fp -g -O0 --apcs=interwork --split_sections -I..\Head-I D:\正泰设计\2013版\LPC18xx43xx\Terminal\RTE-I C:\Keil_v5\ARM\PACK\Keil\LPC4300_DFP\2.5.0\Device\Include-I C:\Keil_v5\ARM\CMSIS\Include-D__UVISION_VERSION="516" -DCORE_M4-o .\objects\terminal_ver.o --omf_browse .\objects\terminal_ver.crf --depend .\objects\terminal_ver.d)
+I (..\Head\Project.h)(0x55D417E7)
+I (..\Head\type.h)(0x51F9B55B)
+I (C:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x55AEF5F2)
+I (..\Head\Pin_Project2xx.h)(0x55821F1D)
+I (..\Head\Project2xx_USER0xx.h)(0x55D3DD8F)
+I (..\Head\AFN04MaxPn.h)(0x53ABD58D)
+I (..\Head\AFN05MaxPn.h)(0x4F4D7F79)
+I (..\Head\AFN0CMaxPn.h)(0x5321186B)
+I (..\Head\AFN0DMaxPn.h)(0x50E792FF)
+I (..\Head\AFN0DMaxPn_Project2xx.h)(0x5562A085)
+I (..\Head\AFN0EMaxPn.h)(0x52B13C37)
+I (..\Head\ADDR_ENTRY.h)(0x55C98797)
+I (..\Head\IRAM.h)(0x55D41CD5)
+I (..\Head\IRAM_MeterSave.h)(0x53D75F4F)
+I (..\Head\IRAM_Meter.h)(0x543DB9B2)
+I (..\Head\IRAM_TerminalSave.h)(0x55629107)
+I (..\Head\IRAM_Terminal.h)(0x55B6F56D)
+I (..\Head\IEEPROM.h)(0x55D41BAE)
+I (..\Head\EFLASH.h)(0x55C1C5AF)
+I (..\Head\EFLASH_Meter.h)(0x55AC5969)
+I (..\Head\EFLASH_Terminal.h)(0x55AC5C18)
+I (..\Head\AFN04.h)(0x53990659)
+I (..\Head\AFN05.h)(0x53118358)
+I (..\Head\AFN0E.h)(0x531FCF01)
+I (..\Head\AFN0C_HourCongeal.h)(0x500DF5CC)
+I (..\Head\AFN0D_Source.h)(0x53CE3507)
+I (..\Head\AFN04Ext.h)(0x54D1CDAE)
+I (..\Head\AFN0D.h)(0x556292D9)
+I (..\Head\ERAM.h)(0x55B8475C)
+I (..\Head\AFN0C.h)(0x55769D85)
+I (..\Head\AFN0C_HourCongeal_Buff.h)(0x4FE16596)
+I (..\Head\AFN0D_Congeal_Buff.h)(0x52D1667B)
+F (.\Terminal_End.s)(0x55D4319F)(--cpu Cortex-M4.fp -g --apcs=interwork -I D:\正泰设计\2013版\LPC18xx43xx\Terminal\RTE-I C:\Keil_v5\ARM\PACK\Keil\LPC4300_DFP\2.5.0\Device\Include-I C:\Keil_v5\ARM\CMSIS\Include--pd "__UVISION_VERSION SETA 516" --pd "CORE_M4 SETA 1"-o .\objects\terminal_end.o --depend .\objects\terminal_end.d)

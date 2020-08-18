@@ -1,0 +1,421 @@
+#include "../Hcsg/ProjectCSG.h"
+#include "../Hcsg/IRAMCSG.h"
+#include "../Display/DisplayLoop_ICO.h"
+#include "../QCSG_Head/QCSG_UpLinkProtocol.h"
+#include "../QCSG_Head/QCSG_LocalLinkProtocol.h"
+#include "../QCSG_Head/QCSG_DLT645_Protocol.h"
+#include "../QCSG_Head/QCSG_PublicDefine.h"
+#include "../QCSG_Head/QCSG_PublicFunc.h"
+#include "../STM32F4xx/STM32F4xx_UART.h"
+#include "../Device/MEMRW.h"
+//#include "../I2_terminal/Terminal_SwitchIn.h"
+//#include "../I2_terminal/Terminal_Contrl_Out.h"
+#include "../Display/Display.h"
+#include "../Calculate/Calculate.h"
+
+
+
+
+u32 DisplayLoop_TopICO(u32 Row)//顶图标和时钟显示
+{
+	u32 i,j,k,x,y,m,n;
+	u8 *p8;
+  u16 *p16;
+  UARTCtrl_TypeDef * UARTCtrl;
+#if (Project/100)==3       //南网负控
+	QCSG_LCD_RAMDATA_S* Pn_Lcd_Data = (QCSG_LCD_RAMDATA_S*)ADDR_LCD_MeterAMRDataBuf;
+#endif
+
+	
+	//无线信号和连接
+	p16=(u16 *)(ADDR_STRINGBUFF+(Row*84)+4+(0*2));
+	p16[0]=0;
+	p16[1]=0;
+	p16[2]=0;
+	p16[3]=0;
+	p16[4]=0;
+	i=Terminal_Ram->Signal;
+	if(i!=0)
+	{
+		p16[0]=2;//'天线'
+		switch(i)
+		{
+			case 1:
+				p16[1]=3;//'信号强度1'
+				break;
+			case 2:
+				p16[1]=4;//'信号强度2'
+				break;
+			case 3:
+				p16[1]=4;//'信号强度2'
+				p16[2]=5;//'信号强度3'
+				break;
+			case 4:
+				p16[1]=4;//'信号强度2'
+				p16[2]=6;//'信号强度4'
+				break;
+		}
+	}
+	if((UART1Ctrl->LinkTask==101)||(UART1Ctrl->LinkTask==102))//链接任务0-99初始过程,100=建立连接,101=登录,102=发退出登录,103=退出登录
+	{
+		if(Terminal_Ram->MODULSEL==1)//无线模块选择0=,1=华为CDMA MC323,2=GPRS标准3763,3=模块盒没插入
+		{
+			p16[3]=9;//'C'
+			p16[4]=10;
+		}
+		else
+		{
+			if((Comm_Ram->RemoteWirelessModuleType&0x01)!=0)//远程无线模块类型位标志:b0=GSM网络支持GPRS,b1=WCDMA网络,b2=TD-SCDMA网络,b3=CDMA 2000,b4=CDMA EVDO,b5=LTE,b6=PSTN,b7=表示扩展一个字节
+			{
+				p16[3]=7;//'G'
+				p16[4]=8;
+			}
+			else
+			{
+				p16[3]=9;//'C'
+				p16[4]=10;
+			}
+		}
+	}
+	
+//以太网连接
+	UARTCtrl=(UARTCtrl_TypeDef *)Get_ADDR_UARTnCtrl(ENETPORT);
+	if((UARTCtrl->LinkTask==101)||(UARTCtrl->LinkTask==102))//链接任务0-99初始过程,100=建立连接,101=登录,102=发退出登录,103=退出登录
+	{
+	#if (USER/100)==5//上海
+		p16[3]=30;//30 'E'
+		p16[4]=31;
+	#else
+		p16[3]=11;//11 'L'
+		p16[4]=12;
+	#endif
+	}
+
+
+
+//异常告警指示，表示终端或测量点有异常情况。当终端发生异常时，该标志将以1Hz的频率闪烁显示
+	p8=(u8 *)(ADDR_MYMDHMS);
+	y=TerminalGetLastAlarmDI();
+	k=(y>>24)&0x000000FF;               //E2
+	j=y&0x00FFFF00;                     //0000
+	m=(y>>4)&0x0000000F;
+	n=y&0x0000000F;
+	if((k==0xE2)&&(j==0)&&(m<=4))
+	{		
+		if((p8[0]%2)==1)
+		{	
+			p16=(u16 *)(ADDR_STRINGBUFF+(Row*84)+4+(5*2));
+			p16[0]=17;// '告警'
+			p16[1]=18;
+		}
+		if((p8[0]%2)==0)
+		{
+			p16=(u16 *)(ADDR_STRINGBUFF+(Row*84)+4+(5*2));
+			p16[0]=0x2030 + m;
+			if(n==0x0A)
+			{
+				p16[1]=0x2000 + 'A';
+			}
+			else if(n==0x0B)
+			{
+				p16[1]=0x2000 + 'B';
+			}
+			else if(n==0x0C)
+			{
+				p16[1]=0x2000 + 'C';
+			}
+			else if(n==0x0D)
+			{
+				p16[1]=0x2000 + 'D';
+			}
+			else if(n==0x0E)
+			{
+				p16[1]=0x2000 + 'E';
+			}
+			else if(n==0x0F)
+			{
+				p16[1]=0x2000 + 'F';
+			}
+			else
+			{
+				p16[1]=0x2030 + n;
+			}	
+		}
+	}
+
+
+//轮显或查询显示的测量点号	
+//默认显示测量点号0
+#if (Project/100)==3       //南网负控
+	p16=(u16 *)(ADDR_STRINGBUFF+(0*84)+4+(8*2));
+	i = hex_bcd(Pn_Lcd_Data->u16Pn);
+	if(Pn_Lcd_Data->u16Pn==0xFFFF)              //测量点不存在时，测量点号为0xFFFF
+	{
+		p16[0]=0x2030; 
+		p16[1]=0x2030;
+		p16[2]=0x2030; 
+		p16[3]=0x2030;
+	}
+	else
+	{
+		p16[0]=0x2000 + (((i >> 12) & 0x000F) + 0x30);
+		p16[1]=0x2000 + (((i >> 8) & 0x000F) + 0x30);
+		p16[2]=0x2000 + (((i >> 4) & 0x000F) + 0x30);
+		p16[3]=0x2000 + ((i & 0x000F) + 0x30);
+	}
+#endif	
+
+
+//可充电电池
+	x=Comm_Ram->UBACKUP;
+	if(Comm_Ram->POWER==3)//电源:0=电池供电,1=电网供电转电池供电重启动,2=电网供电转电池供电,3=电网供电
+	{
+		x=bcd_hex(x);
+		if(x>=20)
+		{
+			x-=20;//电网供电正在充电-0.30V
+		}
+		else
+		{
+			x=0;
+		}
+		x=hex_bcd(x);
+	}
+	i=38;//38'电池0格图'
+	if(x>=RechargeableBatteryGrid1)
+	{
+	  i=40;//40'电池1格图'
+	}
+	if(x>=RechargeableBatteryGrid2)
+	{
+	  i=42;//42'电池2格图'
+	}
+	if(x>=RechargeableBatteryGrid3)
+	{
+	  i=44;//44'电池3格图'
+	}
+	p16=(u16 *)(ADDR_STRINGBUFF+(Row*84)+4+(12*2));
+	p16[0]=i;
+	p16[1]=i+1;
+
+	
+//当前时钟
+	p8=(u8 *)(ADDR_RTCBUFF);
+	p16=(u16 *)(ADDR_STRINGBUFF+(Row*84)+4+(15*2));
+	p16[0]=((p8[2]>>4)&0xf)+0x30+0x2000;
+	p16[1]=((p8[2]>>0)&0xf)+0x30+0x2000;
+	p16[2]=':'+0x2000;
+	p16[3]=((p8[1]>>4)&0xf)+0x30+0x2000;
+	p16[4]=((p8[1]>>0)&0xf)+0x30+0x2000;
+//	p16[5]=':'+0x2000;
+//	p16[6]=((p8[0]>>4)&0xf)+0x30+0x2000;
+//	p16[7]=((p8[0]>>0)&0xf)+0x30+0x2000;
+//
+	Row++;
+	return Row;
+}
+
+
+
+
+
+u32 DisplayLoop_BottomICO(u32 Row)//底图标显示
+{
+  u16 *p16;
+
+//终端抄表状态
+//	if(Comm_Ram->POWER==3)//电源:0=电池供电,1=电网供电转电池供电重启动,2=电网供电转电池供电,3=电网供电
+//	{
+//	#if MainProtocol==376 //376
+//		i=0;
+//		UARTCtrl=(UARTCtrl_TypeDef *)Get_ADDR_UARTnCtrl(RS485_1PORT);
+//		if((UARTCtrl->RMFlag!=0)&&(UARTCtrl->FnEnd!=0))//0=抄表间隔暂停,1=抄表进行中;485抄表Fn计数结束标志,0=结束,1=没结束
+//		{
+//			i=1;
+//		}
+//		UARTCtrl=(UARTCtrl_TypeDef *)Get_ADDR_UARTnCtrl(RS485_2PORT);
+//		if((UARTCtrl->RMFlag!=0)&&(UARTCtrl->FnEnd!=0))//0=抄表间隔暂停,1=抄表进行中;485抄表Fn计数结束标志,0=结束,1=没结束
+//		{
+//			i=1;
+//		}
+////		if(i!=0)
+////		{
+////	#if RMM_RS485_PassageZero==1//RS485通道抄表过0点;0=不暂停,1=暂停
+////			x=Comm_Ram->TYMDHMS[1]+(Comm_Ram->TYMDHMS[2]<<8);
+////			if((x>=0x2355)||(x<0x0005))
+////			{//RS485口在每日0点附近暂停抄表
+////				i=0;
+////			}
+////	#endif
+////		}
+//	#if (Project/100)==2//方案0=智能表,100=网络表,200=集中器,300=专变终端,400=公变终端,500=集中器Ⅱ型,600=通信模块,700=
+//		if(Terminal_Router->RouterRunMode_4==1)//路由运行模式_周期抄表模式： 01表示通信模块仅支持集中器主导的周期抄表模式，10表示通信模块仅支持路由主导的周期抄表模式；11表示通信模块对两种抄表模式都支持；00保留
+//		{
+//			UARTCtrl=(UARTCtrl_TypeDef *)Get_ADDR_UARTnCtrl(RS485_4PORT);
+//			if((UARTCtrl->RMFlag!=0)&&(UARTCtrl->FnEnd!=0))//0=抄表间隔暂停,1=抄表进行中;485抄表Fn计数结束标志,0=结束,1=没结束
+//			{
+//				i=1;
+//			}
+//		}
+//		else
+//		{
+//			//暂停路由标志:
+//			//b0=抄表间隔定时,b1=抄重点户,b2=数据转发,b3=UART读路由信息,b4=广播校时,b5=广播冻结,b6=通断电控制,b7=实时抄读
+//			//b8=档案同步,b9=批量对时,b10=命令暂停抄表,b11=不允许自动抄表,b12=非抄表时段,b13=自动搜表,b14=等待时钟过0,b15=正在冻结
+//			//b16=路由软件更新,b17=,b18=,b19=,b20=,b21=,b22=,b23=
+//			if(((Terminal_Router->StopFlags&0xFFFFFF7D)==0)&&(Terminal_Router->RouterInitTask>=200)&&(Terminal_Router->NoteNum!=0))
+//			{
+//				i=1;
+//			}
+//		}
+//	#endif
+
+//	#else //698
+//		UARTCtrl=(UARTCtrl_TypeDef *)Get_ADDR_UARTnCtrl(RS485_1PORT);
+//		i=UARTCtrl->TaskID;
+//		UARTCtrl=(UARTCtrl_TypeDef *)Get_ADDR_UARTnCtrl(RS485_2PORT);
+//		i|=UARTCtrl->TaskID;
+//		#if (Project/100)==2//方案0=智能表,100=网络表,200=集中器,300=专变终端,400=公变终端,500=集中器Ⅱ型,600=通信模块,700=
+//		UARTCtrl=(UARTCtrl_TypeDef *)Get_ADDR_UARTnCtrl(RS485_3PORT);
+//		i|=UARTCtrl->TaskID;
+//		#endif
+//	#endif
+//		if(i!=0)
+//		{
+//			//DisplayString(Row,0,0,(u8 *)"终端正在抄表...");//显示字符串
+//		}
+//	}
+//////#endif
+
+	DisplayString(Row,0,0,(u8 *)"终端正在抄表..");//显示字符串
+
+
+
+//设置键
+  p16=(u16 *)(ADDR_STRINGBUFF+(Row*84)+4+(12*2));
+#if KEY_SET==1//设置按键0=没,1=有
+	#if ((Project/100)<5)//方案0=智能表,100=网络表,200=集中器,300=专变终端,400=公变终端,500=采集器,600=通信模块
+	if(MRR(ADDR_MeterFMTimer,2))
+	{
+		p16[0]=23;// '编程按键'
+		p16[1]=24;
+	}
+	#else
+	if(MRR(ADDR_TerminalFMTimer+12,2))
+	{
+		p16[0]=23;// '编程按键'
+		p16[1]=24;
+	}
+	#endif
+#endif
+//工厂模式(优先于设置键)
+	if(Comm_Ram->Factory==0x55)//工厂状态
+	{
+		p16[0]=25;// '工厂模式'
+		p16[1]=26;
+	}
+//时钟电池欠压
+	if(Comm_Ram->URTC<0x200)
+	{//小于2.00V
+		if(Comm_Ram->RTCBuff[0]&1)
+		{
+	  	p16=(u16 *)(ADDR_STRINGBUFF+(Row*84)+4+(14*2));
+			p16[0]=21;//'电池欠压'
+			p16[1]=22;
+		}
+	}
+
+
+//失压标志
+#if (Project/100)==3
+	p16=(u16 *)(ADDR_STRINGBUFF+(Row*84)+4+(16*2));        
+	if(Meter_Ram->LVFlags&0x1)
+	{//A相失压
+		p16[0]=77;
+		p16[1]=78;
+	}
+	if(Meter_Ram->LVFlags&0x2)
+	{//B相失压
+		p16[0]=75;
+		p16[1]=76;
+	}
+	if(Meter_Ram->LVFlags&0x4)
+	{//C相失压
+		p16[0]=73;
+		p16[1]=74;
+	}
+	if(Meter_Ram->LVFlags&0x3)
+	{//AB相失压
+		p16[0]=83;
+		p16[1]=84;
+	}
+	if(Meter_Ram->LVFlags&0x6)
+	{//BC相失压
+		p16[0]=79;
+		p16[1]=80;
+	}
+	if(Meter_Ram->LVFlags&0x5)
+	{//AC相失压
+		p16[0]=81;
+		p16[1]=82;
+	}
+	if((Meter_Ram->LVFlags&0x7) == 0)
+	{//不失压
+		p16[0]=71;
+		p16[1]=72;
+	}
+	if(Meter_Ram->AllLVFlags&0x1)
+	{//全失压
+		p16[0]=85;
+		p16[1]=86;
+	}
+	
+//失流标志
+	p16=(u16 *)(ADDR_STRINGBUFF+(Row*84)+4+(18*2));        
+	if(Meter_Ram->LIFlags&0x1)
+	{//A相失流
+		p16[0]=93;
+		p16[1]=94;
+	}
+	if(Meter_Ram->LIFlags&0x2)
+	{//B相失流
+		p16[0]=89;
+		p16[1]=90;
+	}
+	if(Meter_Ram->LIFlags&0x4)
+	{//C相失流
+		p16[0]=91;
+		p16[1]=92;
+	}
+	if(Meter_Ram->LIFlags&0x3)
+	{//AB相失流
+		p16[0]=99;
+		p16[1]=100;
+	}
+	if(Meter_Ram->LIFlags&0x6)
+	{//BC相失流
+		p16[0]=95;
+		p16[1]=96;
+	}
+	if(Meter_Ram->LIFlags&0x5)
+	{//AC相失流
+		p16[0]=97;
+		p16[1]=98;
+	}
+	if((Meter_Ram->LIFlags&0x7) == 0)
+	{//不失流
+		p16[0]=87;
+		p16[1]=88;
+	}
+	if((Meter_Ram->LIFlags&0x7) != 0)
+	{//全失流
+		p16[0]=101;
+		p16[1]=102;
+	}
+#endif	
+	Row++;
+	return Row;
+}
+
+
+

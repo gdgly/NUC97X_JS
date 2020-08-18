@@ -1,0 +1,612 @@
+
+
+STM32F4xx的376.1版本
+2016.12.21速度相关修改
+1.
+D:\STM32F4xx\Terminal\Terminal_ReadMeter_RS485.c
+void Terminal_AFN0CF11_RS485(u32 PORTn,u32 RMTask)//终端类1数据F11,终端集中抄表状态信息;入口要计算的抄表任务号
+{
+...
+	Addr=ADDR_AFN04F10+2;
+	for(i=0;i<AFN04F10MaxPn;i++)
+	{
+		...
+	}
+...
+｝
+修改为
+void Terminal_AFN0CF11_RS485(u32 PORTn,u32 RMTask)//终端类1数据F11,终端集中抄表状态信息;入口要计算的抄表任务号
+{
+...
+	#if (LEN_AFN04F10_Pn*AFN04F10MaxPn)>LEN_128KDATABUFF
+		#error
+	#endif
+	MR(ADDR_128KDATABUFF,ADDR_AFN04F10,LEN_AFN04F10_Pn*AFN04F10MaxPn);
+	Addr=ADDR_128KDATABUFF+2;
+	//Addr=ADDR_AFN04F10+2;
+	for(i=0;i<AFN04F10MaxPn;i++)
+	{
+		...
+	}
+...
+｝
+
+2.
+D:\STM32F4xx\Terminal\Terminal_ReadMeter_3762.c
+void Terminal_RouterSyn(u32 PORTn)//路由器档案同步
+{
+...
+	case 4://删除从节点
+		...
+		z=ADDR_AFN04F10;
+		for(x=0;x<AFN04F10MaxPn;x++)
+		{
+			...
+		}
+	case 5://添加从节点
+...
+}
+修改为
+void Terminal_RouterSyn(u32 PORTn)//路由器档案同步
+{
+...
+	case 4://删除从节点
+		...
+		#if (LEN_AFN04F10_Pn*AFN04F10MaxPn)>LEN_128KDATABUFF
+			#error
+		#endif
+		MR(ADDR_128KDATABUFF,ADDR_AFN04F10,LEN_AFN04F10_Pn*AFN04F10MaxPn);
+		z=ADDR_128KDATABUFF;
+		//z=ADDR_AFN04F10;
+		for(x=0;x<AFN04F10MaxPn;x++)
+		{
+			...
+		}
+	case 5://添加从节点
+				case 3://添加接收
+					switch(UARTCtrl->Task)//UART_3762接收发送;0=空闲,1=完成1帧发收,2=接收超时(或错误),3=启动发送,4=正在发送,5=正在接收
+					{
+						case 1://1=完成1帧发收
+							if(Get_Uart_3762_RxData_AFN_Fn(PORTn)==((0<<8)+1))//UART_3762接收数据得到AFN,Fn;B15-B8=AFN,B7-B0=Fn
+							{//回答确认,添加
+						ADDACK:
+								x=p8txbuff[128];//有要添加的节点数
+								if(x>=10)
+								{
+									x=10;
+								}
+								for(i=0;i<x;i++)
+								{
+									d64a=MRR(((u32)p8txbuff)+128+1+(i*7),6);
+									#if (LEN_AFN04F10_Pn*AFN04F10MaxPn)>LEN_128KDATABUFF
+										#error
+									#endif
+									MR(ADDR_128KDATABUFF,ADDR_AFN04F10,LEN_AFN04F10_Pn*AFN04F10MaxPn);
+									for(z=0;z<AFN04F10MaxPn;z++)
+									{
+										if(MRR(ADDR_128KDATABUFF+(z*LEN_AFN04F10_Pn)+2,2)!=0)
+										{//测量点有效
+											d64b=MRR(ADDR_128KDATABUFF+(z*LEN_AFN04F10_Pn)+4,8);
+											if((d64b&0x1f)==31)
+											{//端口号31
+												d64b>>=16;
+												if(d64a==d64b)
+												{//找到要添加的04参数配置地址
+													if(Terminal_Router->NoteNum<MaxRS485AddCarrierPn)
+													{
+														MC(0,ADDR_NoteList+(Terminal_Router->NoteNum*LEN_NoteList),LEN_NoteList);
+														MWR(d64a,(u32)&Terminal_Note->List[Terminal_Router->NoteNum].Addr,6);
+														if(Terminal_Router->RouterRunMode_1==3)//路由运行模式_通信方式：1表示"窄带电力线载波通信"，2表示"宽带电力线载波通信"，3表示"微功率无线通信"，其它取值保留
+														{//微功率无线,档案地址用采集器地址
+														#if (((USER/100)!=6)||(SVER>=0x200))//湖南集中器V1.xx保留原定义
+															d64b=MRR(ADDR_128KDATABUFF+(z*LEN_AFN04F10_Pn)+20,6);
+															MWR(d64b,(u32)&Terminal_Note->List[Terminal_Router->NoteNum].CollectorAddr,6);
+														#endif
+														}
+														Terminal_Note->List[Terminal_Router->NoteNum].MeterNo=z+1;//对应电能表/交流采样装置序号(从1开始)
+														z=MRR(ADDR_128KDATABUFF+(z*LEN_AFN04F10_Pn)+2,2);//对应测量点号
+														Terminal_Note->List[Terminal_Router->NoteNum].Pn=z;
+														Terminal_Router->NoteNum++;
+														Terminal_Router->ModeNoteNum++;//从模块读取的模块返回从节点数(半字对齐)
+													}
+													break;
+												}
+												else
+												{
+													if(Terminal_Router->RouterRunMode_1==3)//路由运行模式_通信方式：1表示"窄带电力线载波通信"，2表示"宽带电力线载波通信"，3表示"微功率无线通信"，其它取值保留
+													{//微功率无线,档案地址用采集器地址
+													#if (((USER/100)!=6)||(SVER>=0x200))//湖南集中器V1.xx保留原定义
+														d64b=MRR(ADDR_128KDATABUFF+(z*LEN_AFN04F10_Pn)+20,6);
+														if(d64a==d64b)
+														{//找到要添加的04参数配置地址
+															if(Terminal_Router->NoteNum<MaxRS485AddCarrierPn)
+															{
+																MC(0,ADDR_NoteList+(Terminal_Router->NoteNum*LEN_NoteList),LEN_NoteList);
+																d64a=MRR(ADDR_128KDATABUFF+(z*LEN_AFN04F10_Pn)+6,6);
+																MWR(d64a,(u32)&Terminal_Note->List[Terminal_Router->NoteNum].Addr,6);
+																MWR(d64b,(u32)&Terminal_Note->List[Terminal_Router->NoteNum].CollectorAddr,6);
+																Terminal_Note->List[Terminal_Router->NoteNum].MeterNo=z+1;//对应电能表/交流采样装置序号(从1开始)
+																z=MRR(ADDR_128KDATABUFF+(z*LEN_AFN04F10_Pn)+2,2);//对应测量点号
+																Terminal_Note->List[Terminal_Router->NoteNum].Pn=z;
+																Terminal_Router->NoteNum++;
+																Terminal_Router->ModeNoteNum++;//从模块读取的模块返回从节点数(半字对齐)
+															}
+															break;
+														}
+													#endif
+													}
+												}
+											}
+										}
+									}
+								}
+								p8txbuff[128]=0;//要添加数
+								Terminal_Router->RouterInitSubTask=1;//子任务
+							}
+							else
+							{
+								p16timer=(u16 *)Get_ADDR_UARTnTimer(PORTn);
+								p16timer[0]=1000/10;//发送后接收超时定时值ms/10(半字对齐)
+								UARTCtrl->RxByte=0;//RX计数(已接收字节数)=0
+								UARTCtrl->Task=5;//UART_3762接收发送;0=空闲,1=完成1帧发收,2=接收超时(或错误),3=启动发送,4=正在发送,5=正在接收
+							}
+							return;
+						case 0://0=空闲
+						case 2://2=接收超时(或错误)
+							if(Terminal_Router->RouterInitReCount<2)
+							{
+								Terminal_Router->RouterInitReCount++;
+								Terminal_Router->RouterInitSubTask=2;//子任务
+							}
+							else
+							{
+								Terminal_Router->NoteNum=0;//当前路由器中已知总从节点数
+								Terminal_Router->RouterInitTask=0;//路由器抄读任务0-99公共初始化,100-199分厂家初始化,>=200路由抄表
+							}
+							break;
+					}
+					break;
+...
+}
+
+3.
+D:\STM32F4xx\Terminal\KeyUser.c
+void KeyUserPnList(void)//重点户曲线冻结Pn列表
+{
+...
+	//将非重点户的内部交采,RS485表按AFN04F10中配置顺序作为重点户进行曲线冻结,直到等效重点户数达到MaxKeyUser为止
+	if(i<MaxKeyUser)
+	{
+		for(MeterNo=0;MeterNo<AFN04F10MaxPn;MeterNo++)
+		{
+			Pn=MRR(ADDR_AFN04F10+(LEN_AFN04F10_Pn*MeterNo)+2,2);//测量点号
+			if((Pn!=0)&&(Pn<=MaxRS485AddCarrierPn))
+			{
+				SourPn=MRR(ADDR_AFN04F10+(LEN_AFN04F10_Pn*MeterNo)+4,2);
+				x=SourPn>>8;//通信协议类型://1：DL/T 645-1997.；2：交流采样装置通信协议；30：DL/T 645-2007；31："串行接口连接窄带低压载波通信模块"接口协议
+				SourPn&=0x1f;//端口号
+		#if (USER/100)==11//吉林系
+				y=MRR(ADDR_AFN04F10+(LEN_AFN04F10_Pn*MeterNo)+26,1);;//大小类号
+				if(((SourPn!=0)&&(SourPn<=3))||(x==2)||((SourPn==31)&&(x==30)&&(y==0x43)))
+				{//端口号1-3,是内部交采或RS485表,是载波07表大小类号为(4,3)
+		#else
+				if(((SourPn!=0)&&(SourPn<=3))||(x==2))
+				{//端口号1-3,是内部交采或RS485表
+		#endif
+					for(x=0;x<i;x++)
+					{
+						SourPn=p16[x];
+						if(SourPn==Pn)
+						{//相同测量点号已是重点户
+							break;
+						}
+					}
+					if(x>=i)
+					{//原重点户没本测量点号
+						SourPn=p16[i];
+						p16[i]=Pn;
+						if(SourPn!=Pn)
+						{//Pn映射表变化
+							//清曲线冻结区间电能量起始值
+							MC(0xee,ADDR_AFN0DF97_SOUR+(5*i),5);//正向有功总电量原始,初始化值0xee
+							MC(0xee,ADDR_AFN0DF98_SOUR+(4*i),4);//正向无功总电量原始,初始化值0xee
+							MC(0xee,ADDR_AFN0DF99_SOUR+(5*i),5);//反向有功总电量原始,初始化值0xee
+							MC(0xee,ADDR_AFN0DF100_SOUR+(4*i),4);//反向无功总电量原始,初始化值0xee
+							//
+						}
+						i++;
+						if(i>=MaxKeyUser)
+						{
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
+}
+修改为
+void KeyUserPnList(void)//重点户曲线冻结Pn列表
+{
+...
+	//将非重点户的内部交采,RS485表按AFN04F10中配置顺序作为重点户进行曲线冻结,直到等效重点户数达到MaxKeyUser为止
+	if(i<MaxKeyUser)
+	{
+		#if (LEN_AFN04F10_Pn*AFN04F10MaxPn)>LEN_128KDATABUFF
+			#error
+		#endif
+		MR(ADDR_128KDATABUFF,ADDR_AFN04F10,LEN_AFN04F10_Pn*AFN04F10MaxPn);
+		for(MeterNo=0;MeterNo<AFN04F10MaxPn;MeterNo++)
+		{
+			Pn=MRR(ADDR_128KDATABUFF+(LEN_AFN04F10_Pn*MeterNo)+2,2);//测量点号
+			if((Pn!=0)&&(Pn<=MaxRS485AddCarrierPn))
+			{
+				SourPn=MRR(ADDR_128KDATABUFF+(LEN_AFN04F10_Pn*MeterNo)+4,2);
+				x=SourPn>>8;//通信协议类型://1：DL/T 645-1997.；2：交流采样装置通信协议；30：DL/T 645-2007；31："串行接口连接窄带低压载波通信模块"接口协议
+				SourPn&=0x1f;//端口号
+		#if (USER/100)==11//吉林系
+				y=MRR(ADDR_128KDATABUFF+(LEN_AFN04F10_Pn*MeterNo)+26,1);;//大小类号
+				if(((SourPn!=0)&&(SourPn<=3))||(x==2)||((SourPn==31)&&(x==30)&&(y==0x43)))
+				{//端口号1-3,是内部交采或RS485表,是载波07表大小类号为(4,3)
+		#else
+				if(((SourPn!=0)&&(SourPn<=3))||(x==2))
+				{//端口号1-3,是内部交采或RS485表
+		#endif
+					for(x=0;x<i;x++)
+					{
+						SourPn=p16[x];
+						if(SourPn==Pn)
+						{//相同测量点号已是重点户
+							break;
+						}
+					}
+					if(x>=i)
+					{//原重点户没本测量点号
+						SourPn=p16[i];
+						p16[i]=Pn;
+						if(SourPn!=Pn)
+						{//Pn映射表变化
+							//清曲线冻结区间电能量起始值
+							MC(0xee,ADDR_AFN0DF97_SOUR+(5*i),5);//正向有功总电量原始,初始化值0xee
+							MC(0xee,ADDR_AFN0DF98_SOUR+(4*i),4);//正向无功总电量原始,初始化值0xee
+							MC(0xee,ADDR_AFN0DF99_SOUR+(5*i),5);//反向有功总电量原始,初始化值0xee
+							MC(0xee,ADDR_AFN0DF100_SOUR+(4*i),4);//反向无功总电量原始,初始化值0xee
+							//
+						}
+						i++;
+						if(i>=MaxKeyUser)
+						{
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+4.
+D:\STM32F4xx\Terminal\Terminal_AFN0D_CongealData.c
+void RMDateCongealFlags(u32 PORTf,u32 ADDR_CongealFlags)//抄表日冻结各测量点号分端口冻结标志;入口:端口标志B1-B31分别表示端口1-端口31,存放缓冲;出口:B0-Bn分别表示测量点号1-(n+1),位0=不冻结,位1=冻结
+{
+	u32 i;
+	u32 Meter;
+	u32 Pn;
+	u8 *p8d;
+#if IC_SST39VF6401B==0//0=没,1=有
+	u32 Addr;
+#else
+	u8 *p8s;
+#endif
+
+	p8d=(u8*)(ADDR_CongealFlags);
+	MC(0xff,ADDR_CongealFlags,(AFN04F10MaxPn+7)/8);//初始为全部点冻结
+#if IC_SST39VF6401B==0//0=没,1=有
+	Addr=ADDR_AFN04F10+2;
+	for(Meter=0;Meter<AFN04F10MaxPn;Meter++)
+	{
+		Pn=MRR(Addr,2);
+		if((Pn<=AFN04F10MaxPn)&&(Pn!=0))
+		{//Pn有效
+			Pn--;
+			i=MRR(Addr+2,1);
+			i&=0x1f;
+			i=1<<i;
+			i&=PORTf;
+			if(i==0)
+			{//本端口不冻结
+				i=1<<(Pn%8);
+				i=~i;
+				p8d[Pn/8]&=i;
+			}
+		}
+		Addr+=LEN_AFN04F10_Pn;
+	}
+#else
+	p8s=(u8 *)(ADDR_AFN04F10+2);
+	for(Meter=0;Meter<AFN04F10MaxPn;Meter++)
+	{
+		Pn=p8s[0]+(p8s[1]<<8);
+		if((Pn<=AFN04F10MaxPn)&&(Pn!=0))
+		{//Pn有效
+			Pn--;
+			i=p8s[2];
+			i&=0x1f;
+			i=1<<i;
+			i&=PORTf;
+			if(i==0)
+			{//本端口不冻结
+				i=1<<(Pn%8);
+				i=~i;
+				p8d[Pn/8]&=i;
+			}
+		}
+		p8s+=LEN_AFN04F10_Pn;
+	}
+#endif
+}
+修改为
+void RMDateCongealFlags(u32 PORTf,u32 ADDR_CongealFlags)//抄表日冻结各测量点号分端口冻结标志;入口:端口标志B1-B31分别表示端口1-端口31,存放缓冲;出口:B0-Bn分别表示测量点号1-(n+1),位0=不冻结,位1=冻结
+{
+	u32 i;
+	u32 Meter;
+	u32 Pn;
+	u8 *p8d;
+	u32 Addr;
+
+	p8d=(u8*)(ADDR_CongealFlags);
+	MC(0xff,ADDR_CongealFlags,(AFN04F10MaxPn+7)/8);//初始为全部点冻结
+	#if (LEN_AFN04F10_Pn*AFN04F10MaxPn)>LEN_128KDATABUFF
+		#error
+	#endif
+	MR(ADDR_128KDATABUFF,ADDR_AFN04F10,LEN_AFN04F10_Pn*AFN04F10MaxPn);
+	Addr=ADDR_128KDATABUFF+2;
+	//Addr=ADDR_AFN04F10+2;
+	for(Meter=0;Meter<AFN04F10MaxPn;Meter++)
+	{
+		Pn=MRR(Addr,2);
+		if((Pn<=AFN04F10MaxPn)&&(Pn!=0))
+		{//Pn有效
+			Pn--;
+			i=MRR(Addr+2,1);
+			i&=0x1f;
+			i=1<<i;
+			i&=PORTf;
+			if(i==0)
+			{//本端口不冻结
+				i=1<<(Pn%8);
+				i=~i;
+				p8d[Pn/8]&=i;
+			}
+		}
+		Addr+=LEN_AFN04F10_Pn;
+	}
+}
+
+5.
+D:\STM32F4xx\Head\ERAM.h
+增加
+#define ADDR_CurveCongealList     ADDR_PnVSSetList+6+(6*MaxRS485AddCarrierPn)//已有曲线冻结时标列表
+//2byte B0-B14曲线冻结计数,b15=1表示曲线冻结计数满
+//5byte YMDHM
+//1byte 
+//...
+
+6.
+D:\STM32F4xx\Terminal\Terminal_AFN0D_CongealData.c
+void Terminal_Class2Data_Computer(void)//终端类2数据计算
+{
+
+	if(DataComp(((u32)Terminal_Ram->LastCongealTime),ADDR_TYMDHMS+1,5))//数据比较,返回0=相等;当Byte>8时返回1=不相等;当Byte<=8时1=Data1>Data2,2=Data1<Data2
+	{//年月日时分更新
+		if((Terminal_Ram->CongealFlags&0x1f)==0)//在实时钟分更新时清0;正在冻结标志(0正在冻结,1冻结完成);B0=小时冻结,B1=曲线冻结,B2=日冻结,B3=抄表日冻结,B4=月冻结
+		{
+			MR((u32)Terminal_Ram->LastCongealTime,ADDR_TYMDHMS+1,5);//上次冻结时的实时钟分寄存
+		}
+		else
+		{
+			if((Terminal_Ram->CongealFlags&0x1f)==0x1f)//在实时钟分更新时清0;正在冻结标志(0正在冻结,1冻结完成);B0=小时冻结,B1=曲线冻结,B2=日冻结,B3=抄表日冻结,B4=月冻结
+			{
+				Terminal_Ram->CongealFlags=0;//在实时钟分更新时清0;正在冻结标志(0正在冻结,1冻结完成);B0=小时冻结,B1=曲线冻结,B2=日冻结,B3=抄表日冻结,B4=月冻结
+				MR((u32)Terminal_Ram->LastCongealTime,ADDR_TYMDHMS+1,5);//上次冻结时的实时钟分寄存
+			}
+		}
+	}
+	switch(Terminal_Ram->I2SUBTask2)
+	{
+		case 0:
+			Terminal_CurveCongeal();//曲线冻结
+			break;
+		case 1:
+			Terminal_DateCongeal();//日冻结
+			break;
+		case 2:
+			Terminal_RMDateCongeal();//抄表日冻结
+			break;
+		case 3:
+			Terminal_MonthCongeal();//月冻结
+			break;
+		default:
+			Terminal_Ram->I2SUBTask2=0;
+			return;
+	}
+	Terminal_Ram->I2SUBTask2+=1;
+}
+修改为
+void Terminal_Class2Data_Computer(void)//终端类2数据计算
+{
+	u32 i;
+	u32 x;
+	u32 y;
+	u16 *p16;
+	
+	
+	if(DataComp(((u32)Terminal_Ram->LastCongealTime),ADDR_TYMDHMS+1,5))//数据比较,返回0=相等;当Byte>8时返回1=不相等;当Byte<=8时1=Data1>Data2,2=Data1<Data2
+	{//年月日时分更新
+		if((Terminal_Ram->CongealFlags&0x1f)==0)//在实时钟分更新时清0;正在冻结标志(0正在冻结,1冻结完成);B0=小时冻结,B1=曲线冻结,B2=日冻结,B3=抄表日冻结,B4=月冻结
+		{
+			MR((u32)Terminal_Ram->LastCongealTime,ADDR_TYMDHMS+1,5);//上次冻结时的实时钟分寄存
+		}
+		else
+		{
+			if((Terminal_Ram->CongealFlags&0x1f)==0x1f)//在实时钟分更新时清0;正在冻结标志(0正在冻结,1冻结完成);B0=小时冻结,B1=曲线冻结,B2=日冻结,B3=抄表日冻结,B4=月冻结
+			{
+				Terminal_Ram->CongealFlags=0;//在实时钟分更新时清0;正在冻结标志(0正在冻结,1冻结完成);B0=小时冻结,B1=曲线冻结,B2=日冻结,B3=抄表日冻结,B4=月冻结
+				MR((u32)Terminal_Ram->LastCongealTime,ADDR_TYMDHMS+1,5);//上次冻结时的实时钟分寄存
+			}
+		}
+	}
+	switch(Terminal_Ram->I2SUBTask2)
+	{
+		case 0:
+			x=MRR(ADDR_TCongealCount+7,2);
+			p16=(u16*)(ADDR_CurveCongealList);
+			y=p16[0];
+			if(x!=y)
+			{
+				if((x&0x7fff)>=MaxCurveCongeal)
+				{
+					x=0;
+					MWR(x,ADDR_TCongealCount+7,2);
+				}
+				if((y&0x7fff)>=MaxCurveCongeal)
+				{
+					y=0;
+				}
+				if((x&0x8000)==0)
+				{
+					if(y&0x8000)
+					{
+						y=0;//x回0
+					}
+				}
+				i=100;
+				while(i--)
+				{
+					if(x==y)
+					{
+						break;
+					}
+					MR(ADDR_CurveCongealList+2+((y&0x7fff)*6),ADDR_CURVECONGEAL_START+((y&0x7fff)*LEN_CURVECONGEAL),5);
+					y++;
+					if((y&0x7fff)>=MaxCurveCongeal)
+					{
+						y=0x8000;
+					}
+				}
+				p16[0]=y;
+				return;
+			}
+			Terminal_CurveCongeal();//曲线冻结
+			break;
+		case 1:
+			Terminal_DateCongeal();//日冻结
+			break;
+		case 2:
+			Terminal_RMDateCongeal();//抄表日冻结
+			break;
+		case 3:
+			Terminal_MonthCongeal();//月冻结
+			break;
+		default:
+			Terminal_Ram->I2SUBTask2=0;
+			return;
+	}
+	Terminal_Ram->I2SUBTask2+=1;
+}
+
+
+
+8.
+D:\STM32F4xx\Terminal\Terminal_AFN0D_SourceData.c
+增加头文件
+#include "../MS/MS.h"
+
+void Source_Full_CongealBuff(u32 Addr_CongealBuff,u32 CongealType,u32 ADDR_CongealFlags,u32 YMD,u32 Full0xee)//抄表原始数据填入冻结缓冲;冻结类型:0=日冻结,1=抄表日冻结,2=月冻结,3=曲线;端口B0=空,B1-B31分别表示端口1-31;YMD:有效抄表时间年月日(值0表示不比较);Full0xee!=0表示DL645-2007表无原始数据时填0xee
+{
+	u32 i;
+	u32 Fn;
+	u32 Pn;
+	u32 MaxFn;
+	u32 MaxPn;
+	u32 SourAddr;
+	u8 * p8f;
+	u8 *pn8;
+	
+	p8f=(u8*)ADDR_CongealFlags;//测量点分端口需冻结标志
+	MaxFn=Get_Class2Data_MaxFn();
+	if(Full0xee)
+	{//无原始数据填0xee
+		PnVSPORTProtocolList(ADDR_PnVSSetList);//测量点号Pn对应AFN04F10配置端口号和通信协议列表,无配置且非脉冲口默认端口号0通信协议为30(DL645-2007)
+	}
+	pn8=(u8*)(ADDR_PnVSSetList);
+	
+	for(Fn=1;Fn<MaxFn;Fn++)
+	{
+...
+}
+修改为
+void Source_Full_CongealBuff(u32 Addr_CongealBuff,u32 CongealType,u32 ADDR_CongealFlags,u32 YMD,u32 Full0xee)//抄表原始数据填入冻结缓冲;冻结类型:0=日冻结,1=抄表日冻结,2=月冻结,3=曲线;端口B0=空,B1-B31分别表示端口1-31;YMD:有效抄表时间年月日(值0表示不比较);Full0xee!=0表示DL645-2007表无原始数据时填0xee
+{
+	u32 i;
+	u32 Fn;
+	u32 Pn;
+	u32 MaxFn;
+	u32 MaxPn;
+	u32 SourAddr;
+	u8 * p8f;
+	u8 *pn8;
+	ms_Type* ms;
+	
+//为加速先清nand写buff
+	ms=Get_ms();
+	ms->NAND128kBuff_Write_NAND(0,0,0);
+	
+	p8f=(u8*)ADDR_CongealFlags;//测量点分端口需冻结标志
+	MaxFn=Get_Class2Data_MaxFn();
+	if(Full0xee)
+	{//无原始数据填0xee
+		PnVSPORTProtocolList(ADDR_PnVSSetList);//测量点号Pn对应AFN04F10配置端口号和通信协议列表,无配置且非脉冲口默认端口号0通信协议为30(DL645-2007)
+	}
+	pn8=(u8*)(ADDR_PnVSSetList);
+	
+	for(Fn=1;Fn<MaxFn;Fn++)
+	{
+...
+}
+
+u32 LastSource_Full_CongealBuff(u32 Addr_CongealBuff,u32 LastYMD)//上2-3日抄表原始数据填入冻结缓冲;入口:LastYMD=电表冻结时标;返回:0=没补抄填入,1=有
+{
+	u32 i;
+	u32 Fn;
+	u32 Pn;
+	u32 MaxPn;
+	u32 SourAddr;
+	u32 Full;//有填入标志
+	
+	Full=0;//有填入标志
+	for(Fn=161;Fn<168;Fn++)
+	{
+...
+}
+修改为
+u32 LastSource_Full_CongealBuff(u32 Addr_CongealBuff,u32 LastYMD)//上2-3日抄表原始数据填入冻结缓冲;入口:LastYMD=电表冻结时标;返回:0=没补抄填入,1=有
+{
+	u32 i;
+	u32 Fn;
+	u32 Pn;
+	u32 MaxPn;
+	u32 SourAddr;
+	u32 Full;//有填入标志
+	ms_Type* ms;
+	
+//为加速先清nand写buff
+	ms=Get_ms();
+	ms->NAND128kBuff_Write_NAND(0,0,0);
+	
+	Full=0;//有填入标志
+	for(Fn=161;Fn<168;Fn++)
+	{
+...
+}
+

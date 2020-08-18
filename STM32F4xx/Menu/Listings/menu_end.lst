@@ -1,0 +1,53 @@
+
+
+
+ARM Macro Assembler    Page 1 
+
+
+    1 00000000         
+    2 00000000         ;//软件模块结束
+    3 00000000         
+    4 00000000         
+    5 00000000                 export           ADDR_Menu_END
+    6 00000000         
+    7 00000000         
+    8 00000000         
+    9 00000000                 AREA             Menu_END,DATA,READONLY
+   10 00000000                 ALIGN            4
+   11 00000000         
+   12 00000000 00000000        DCD              0           ;//CRC32
+   13 00000004 5A5A5A5A        DCD              0x5A5A5A5A  ;//固定标识(最后)
+   14 00000008         ADDR_Menu_END
+   15 00000008         
+   16 00000008         
+   17 00000008                 END
+Command Line: --debug --xref --diag_suppress=9931 --cpu=Cortex-M4 --apcs=interw
+ork --depend=d:\obj\menu_end.d -od:\obj\menu_end.o -IE:\KEIL\STM32F4xx\Menu\RTE
+\_376.1 -IC:\Keil_v5\ARM\PACK\Keil\STM32F4xx_DFP\2.9.0\Drivers\CMSIS\Device\ST\
+STM32F4xx\Include -IC:\Keil_v5\ARM\CMSIS\Include --predefine="__UVISION_VERSION
+ SETA 522" --predefine="STM32F469xx SETA 1" --predefine="MainProtocol SETA 376"
+ --list=.\listings\menu_end.lst Menu_End.s
+
+
+
+ARM Macro Assembler    Page 1 Alphabetic symbol ordering
+Relocatable symbols
+
+ADDR_Menu_END 00000008
+
+Symbol: ADDR_Menu_END
+   Definitions
+      At line 14 in file Menu_End.s
+   Uses
+      At line 5 in file Menu_End.s
+Comment: ADDR_Menu_END used once
+Menu_END 00000000
+
+Symbol: Menu_END
+   Definitions
+      At line 9 in file Menu_End.s
+   Uses
+      None
+Comment: Menu_END unused
+2 symbols
+335 symbols in table
